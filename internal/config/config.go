@@ -35,4 +35,12 @@ func SetConfig() {
 	}
 
 	flag.Parse()
+	// TODO: How do that using caarlos0/env in the best way?
+	//environment values
+	if envRunAddr := os.Getenv("SERVER_ADDRESS"); envRunAddr != "" {
+		StartOptions.HTTPServer.Address = envRunAddr
+	}
+	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
+		StartOptions.BaseURL = envBaseURL
+	}
 }
