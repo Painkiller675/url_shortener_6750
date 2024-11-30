@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
 	"github.com/Painkiller675/url_shortener_6750/internal/service"
 	"io"
@@ -21,7 +22,7 @@ func CreateShortURLHandler(res http.ResponseWriter, req *http.Request) {
 	randAl := service.GetRandString(8)
 	repository.WriteURL(randAl, string(body))
 	// response molding
-	baseURL := "http://localhost:8080/"
+	baseURL := config.StartOptions.BaseURL
 	resultURL, err := url.JoinPath(baseURL, randAl)
 	if err != nil {
 		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

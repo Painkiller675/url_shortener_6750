@@ -9,7 +9,7 @@ import (
 
 func main() {
 	// init config
-	cfg := config.MustLoad()
+	config.SetConfig()
 
 	// init router
 	r := chi.NewRouter()
@@ -21,7 +21,7 @@ func main() {
 	})
 
 	//start server
-	err := http.ListenAndServe(cfg.Address, r)
+	err := http.ListenAndServe(config.StartOptions.HTTPServer.Address, r)
 	if err != nil {
 		panic(err) // or log.Fatal()???
 

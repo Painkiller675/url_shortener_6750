@@ -1,41 +1,38 @@
 package config
 
 import (
-	"github.com/ilyakaznacheev/cleanenv"
-	"log"
+	"flag"
+	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 )
 
-type Config struct {
-	Env         string `yaml:"env" env-default:"local"`
-	StoragePath string `yaml:"storage_path" env-required:"true"`
-	HTTPServer  `yaml:"http_server"`
+var version = "4.0" +
+	""
+
+type Options struct {
+	BaseURL string
+	HTTPServer
 }
 
 type HTTPServer struct {
-	Address     string        `yaml:"address" env-default:"localhost:8080"`
-	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
-	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60s"`
+	Address     string
+	Timeout     time.Duration
+	IdleTimeout time.Duration
 }
 
-func MustLoad() *Config {
-	configPath, err := filepath.Abs("local.yaml")
-	if err != nil {
-		panic(err)
+var StartOptions Options
+
+func SetConfig() {
+	//var StartOptions Options
+	flag.StringVar(&StartOptions.HTTPServer.Address, "a", "localhost:8080", "HTTP-server address")
+	flag.StringVar(&StartOptions.BaseURL, "b", "http://localhost:8080/", "base URL")
+
+	flag.Usage = func() {
+		// TODO: How should I handle this error the best???
+		fmt.Fprintf(flag.CommandLine.Output(), "Version: %v\nUsage of %s:\n", version, os.Args[0])
+		flag.PrintDefaults()
 	}
 
-	// check if file exists
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Fatalf("config file does not exist: %s", configPath)
-	}
-
-	var cfg Config
-
-	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
-		log.Fatalf("cannot read config: %s", err)
-	}
-
-	return &cfg
+	flag.Parse()
 }
