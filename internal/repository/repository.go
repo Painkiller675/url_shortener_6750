@@ -31,12 +31,6 @@ func newSafeStruct() *safeStruct {
 	return &s
 }
 
-// TODO SIMPLE QUESTION for my Mentor !
-// Андрей, скажите, пожалуйста, то, что я отлавливаю ошибку в методе getOrURL и затем передаю его в функцию
-// GetShortURL и далее в handlers это нормально? Или же обрабатывают по-другому? И на каком этапе должно быть логирование?
-// Также хотел бы задать вопрос по вашей статье применительно к моей ошибке в итерации (написал в ЛС)
-// СПАСИБО!
-
 var orAlURLStorage = newSafeStruct() // ALIAS - orURL
 
 func WriteURL(newAl string, newOrURL string) {
