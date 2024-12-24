@@ -20,6 +20,8 @@ func main() {
 	// init router
 	r := chi.NewRouter()
 
+	// init storage if any
+
 	// set logger for chi router
 	r.Use(logger.LogMW)
 	r.Use(gzipMW.GzMW)
