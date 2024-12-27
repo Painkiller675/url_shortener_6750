@@ -45,13 +45,18 @@ func newSafeStruct(fileData *safeStruct) *safeStruct {
 	//var s safeStruct
 	//s.AlURLStorage = make(map[string]string)
 	//return &s
+	// if we have an empty file
+	if fileData.AlURLStorage == nil {
+		fileData.AlURLStorage = make(map[string]string)
+		return fileData
+	}
 	var s safeStruct
 	s.AlURLStorage = fileData.AlURLStorage
 	return &s
 }
 
 // TODO public constructor return SafeStruct and in struct that it returns thre will be get nd write
-var orAlURLStorage = newSafeStruct(InitStorage("./stor.json")) // ALIAS - orURL
+var orAlURLStorage = newSafeStruct(InitStorage(config.StartOptions.Filename)) // ALIAS - orURL
 
 func WriteURL(newAl string, newOrURL string) {
 	// check if such url already exists if exists => change that
@@ -87,7 +92,7 @@ func InitStorage(filename string) *safeStruct {
 }
 
 func SaveStorage(filename string, structToWrite *safeStruct) {
-	prod, err := NewProducer("./dir/json.txt")
+	prod, err := NewProducer(filename)
 	if err != nil {
 		panic(err)
 	}
@@ -104,7 +109,7 @@ type Producer struct {
 }
 
 func NewProducer(filename string) (*Producer, error) {
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return nil, err
 	}
