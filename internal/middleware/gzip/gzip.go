@@ -2,14 +2,21 @@ package gzip
 
 import (
 	"compress/gzip"
-	"github.com/Painkiller675/url_shortener_6750/internal/middleware/logger"
-	"go.uber.org/zap"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 )
 
-// compressWriter реализует интерфейс http.ResponseWriter и позволяет прозрачно для сервера
+/*type GzipLogger struct {
+	logger *zap.Logger
+}
+
+func NewGzipLogger(logger *zap.Logger) *GzipLogger {
+	return &GzipLogger{logger: logger}
+}
+*/
+// compressWriter implements interface  http.ResponseWriter и позволяет прозрачно для сервера
 // сжимать передаваемые данные и выставлять правильные HTTP-заголовки
 type compressWriter struct {
 	w  http.ResponseWriter
@@ -43,7 +50,7 @@ func (c *compressWriter) Close() error {
 	return c.zw.Close()
 }
 
-// compressReader реализует интерфейс io.ReadCloser и позволяет прозрачно для сервера
+// compressReader implements interface io.ReadCloser и позволяет прозрачно для сервера
 // декомпрессировать получаемые от клиента данные
 type compressReader struct {
 	r  io.ReadCloser
@@ -77,13 +84,16 @@ func GzMW(h http.Handler) http.Handler {
 	gzipFunc := func(res http.ResponseWriter, req *http.Request) {
 		// copy original request
 		or := req
-		// check, that the client sent to the server compressed data in gzip format
+		// check, that the client has sent to the server compressed data in gzip format
 		contentEncoding := req.Header.Get("Content-Encoding")
 		sendsGzip := strings.Contains(contentEncoding, "gzip")
 		if sendsGzip {
-			// оборачиваем тело запроса в io.Reader с поддержкой декомпрессии
+			fmt.Println("[INFO] Content-Encoding is gzip")
+			// wrap request body into io.Reader with decompression available
+			fmt.Println("[INFO] req.Body = ", req.Body)
 			cr, err := newCompressReader(req.Body)
 			if err != nil {
+				fmt.Println("[ERROR] 500")
 				res.WriteHeader(http.StatusInternalServerError)
 				// TODO mb I should call handler with original res and req here?
 				return
@@ -104,7 +114,8 @@ func GzMW(h http.Handler) http.Handler {
 		}
 		// TODO проверяю тут req, хотя Вы говорили про res, всё ли ОК??
 		if !(strings.Contains(req.Header.Get("Content-Type"), "application/json") || strings.Contains(req.Header.Get("Content-Type"), "text/html")) {
-			logger.Log.Info("[INFO]", zap.String("[INFO]", "gzip IS NOT supported by the client!"), zap.String("method", req.Method), zap.String("url", req.URL.Path))
+			//GzipLogger.logger.Info("[INFO]", zap.String("[INFO]", "gzip IS NOT supported by the client!"), zap.String("method", req.Method), zap.String("url", req.URL.Path))
+			fmt.Println("Unacceptable Content-Type => continue without gzip")
 			//  continue without gzip
 			h.ServeHTTP(res, or)
 			return

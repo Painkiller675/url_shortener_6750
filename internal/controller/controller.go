@@ -1,23 +1,31 @@
-package handlers
+package controller
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
-	"github.com/Painkiller675/url_shortener_6750/internal/middleware/logger"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
 	"github.com/Painkiller675/url_shortener_6750/internal/service"
 	"go.uber.org/zap"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 )
 
-func CreateShortURLHandler(res http.ResponseWriter, req *http.Request) {
+type Controller struct {
+	logger  *zap.Logger
+	storage *repository.Storage
+}
+
+func New(logger *zap.Logger, storage *repository.Storage) *Controller {
+	return &Controller{logger: logger, storage: storage}
+}
+
+func (c *Controller) CreateShortURLHandler(res http.ResponseWriter, req *http.Request) {
+
 	body, err := io.ReadAll(req.Body)
 	if err != nil || len(body) == 0 {
 		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -26,7 +34,7 @@ func CreateShortURLHandler(res http.ResponseWriter, req *http.Request) {
 
 	// write an alias
 	randAl := service.GetRandString(8)
-	repository.WriteURL(randAl, string(body))
+	c.storage.SafeStorage.StoreAlURL(randAl, string(body))
 	// response molding
 	baseURL := config.StartOptions.BaseURL
 	fmt.Println("BASE URL in CreateNoJS = ", baseURL)
@@ -42,16 +50,18 @@ func CreateShortURLHandler(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusCreated) // 201
 	_, err = res.Write([]byte(resultURL))
 	if err != nil {
-		log.Printf("Error writing to response: %v", err)
+		c.logger.Info("Failed to write response", zap.Error(err))
+		//log.Printf("Error writing to response: %v", err)
 		return
 	}
 }
 
-func GetLongURLHandler(res http.ResponseWriter, req *http.Request) {
+func (c *Controller) GetLongURLHandler(res http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id") // the cap
 	// response molding ...
-	orURL, err := repository.GetShortURL(id)
+	orURL, err := c.storage.SafeStorage.GetOrURL(id)
 	if err != nil { // TODO: mb I should use status 500 here?
+		c.logger.Info("Failed to get orURL", zap.String("id", id), zap.Error(err))
 		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -59,13 +69,13 @@ func GetLongURLHandler(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusTemporaryRedirect) // 307
 }
 
-func CreateShortURLJSONHandler(res http.ResponseWriter, req *http.Request) {
+func (c *Controller) CreateShortURLJSONHandler(res http.ResponseWriter, req *http.Request) {
 
 	//err := json.NewDecoder(resp.Body).Decode(&jsonData)
 	//fmt.Println("body = ", body)
 	//check content-type
 	if ok := strings.Contains(req.Header.Get("Content-Type"), "application/json"); !ok {
-		logger.Log.Info("[INFO]", zap.String("body", "no content type"), zap.String("method", req.Method), zap.String("url", req.URL.Path))
+		c.logger.Info("[INFO]", zap.String("body", "no content type"), zap.String("method", req.Method), zap.String("url", req.URL.Path))
 		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -74,13 +84,13 @@ func CreateShortURLJSONHandler(res http.ResponseWriter, req *http.Request) {
 	var buf bytes.Buffer
 	// feed data from the body into the buffer
 	if _, err := buf.ReadFrom(req.Body); err != nil {
-		logger.Log.Info("[ERROR]", zap.Error(err))
+		c.logger.Info("[ERROR]", zap.Error(err))
 		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 	// deserialize JSON into JSStruct
 	if err := json.Unmarshal(buf.Bytes(), &orStruct); err != nil {
-		logger.Log.Info("[ERROR]", zap.Error(err))
+		c.logger.Info("[ERROR]", zap.Error(err))
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -88,13 +98,13 @@ func CreateShortURLJSONHandler(res http.ResponseWriter, req *http.Request) {
 	// calculate the alias
 	randAl := service.GetRandString(8)
 	// write into safeStorage to allow getting the data
-	repository.WriteURL(randAl, orStruct.OrURL)
+	c.storage.SafeStorage.StoreAlURL(randAl, orStruct.OrURL)
 	// base URL
 	baseURL := config.StartOptions.BaseURL
 	shURL, err := url.JoinPath(baseURL, randAl)
 
 	if err != nil {
-		logger.Log.Info("[ERROR]", zap.Error(err))
+		c.logger.Info("[ERROR]", zap.Error(err))
 		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -103,20 +113,19 @@ func CreateShortURLJSONHandler(res http.ResponseWriter, req *http.Request) {
 	// marshal data for response
 	marData, err := json.Marshal(jsStruct)
 	if err != nil {
-		logger.Log.Info("[ERROR]", zap.Error(err))
+		c.logger.Info("[ERROR]", zap.Error(err))
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// headers molding ..
+	// headers molding
 	res.Header().Set("Content-Type", "application"+
 		"/json")
 	//res.Header().Set("Content-Length", strconv.Itoa(len(marData)))
 	res.WriteHeader(http.StatusCreated) // 201
 	// response body molding
-	fmt.Println("MarData = ", marData)
 	_, err = res.Write(marData)
 	if err != nil {
-		logger.Log.Info("[ERROR]", zap.Error(err))
+		c.logger.Info("[ERROR]", zap.Error(err))
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
