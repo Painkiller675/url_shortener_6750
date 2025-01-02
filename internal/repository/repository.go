@@ -47,7 +47,7 @@ func newSafeStorage(logger *zap.Logger) *safeStorage {
 
 	}
 	return &safeStorage{
-		AlURLStorage: stor.AlURLStorage, // mb save all the struct but wht about logger etc?
+		AlURLStorage: stor.AlURLStorage, // mb save all the struct but wht about logger  etc?
 		mx:           &sync.RWMutex{},
 		logger:       logger,
 	}
