@@ -21,8 +21,6 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	//render logger for gzip
-	//gzipMW.NewGzipLogger(l.Logger)
 
 	// init storage
 	s := repository.NewStorage(l.Logger)

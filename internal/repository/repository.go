@@ -3,6 +3,7 @@ package repository
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"go.uber.org/zap"
@@ -87,21 +88,18 @@ func getStorage(filename string) (*safeStorage, error) {
 	// read data nd get the link
 	gotData, err := opnFile.ReadEvent()
 	if err != nil {
-		if err == io.EOF {
-			//s.logger.Info("File is empty (reading)", zap.String("filename", filename))
+		// if file is empty
+		if errors.Is(err, io.EOF) {
 			// return empty storage
 			return &safeStorage{
 				AlURLStorage: make(map[string]string),
 			}, nil
 		}
-		// handle other possible errors
-		//s.logger.Error("Failed to read the file for reading!", zap.String("filename", filename), zap.Error(err))
 		return nil, err
 	}
 	return gotData, nil
 }
 
-// func (s *safeStorage) saveStorage(filename string) error {
 func saveStorage(filename string, toSave *safeStorage) error {
 	opnFile, err := NewProducer(filename)
 	if err != nil {
