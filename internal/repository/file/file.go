@@ -42,7 +42,7 @@ func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string) (int
 
 // a blind plug to be able to implement the interface
 func (s *Storage) Ping(ctx context.Context) error {
-	return nil
+	return errors.New("DB isn't available")
 }
 
 func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) {

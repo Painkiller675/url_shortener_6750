@@ -173,7 +173,7 @@ func (c *Controller) PingDB(ctx context.Context) http.HandlerFunc {
 		// if no connection
 		if err != nil {
 			c.logger.Info("[ERROR]", zap.String("PingDB", "Can't ping pg database!"), zap.Error(err))
-			http.Error(res, err.Error(), http.StatusInternalServerError)
+			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 		// if connected

@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	//"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"go.uber.org/zap"
@@ -56,5 +57,5 @@ func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) 
 }
 
 func (s *Storage) Ping(ctx context.Context) error {
-	return nil
+	return errors.New("DB isn't available")
 }
