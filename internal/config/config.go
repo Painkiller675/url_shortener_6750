@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+//var password = "12345678"
+
 var version = "4.0" +
 	""
 
@@ -14,6 +16,7 @@ type Options struct {
 	BaseURL  string
 	LogLvl   string // flag
 	Filename string
+	DBConStr string
 	HTTPServer
 }
 
@@ -25,12 +28,18 @@ type HTTPServer struct {
 
 var StartOptions Options
 
+// var postgreConStr = fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
+//
+//	`localhost`, `postgres`, "12345678", `url_shortener`)
+var postgreConStr = "user=postgres password=12345678 dbname=url_shortener sslmode=disable"
+
 func SetConfig() {
 	//var StartOptions Options
 	flag.StringVar(&StartOptions.HTTPServer.Address, "a", "localhost:8080", "HTTP-server address")
 	flag.StringVar(&StartOptions.BaseURL, "b", "http://localhost:8080/", "base URL")
 	flag.StringVar(&StartOptions.LogLvl, "l", "info", "log level")
 	flag.StringVar(&StartOptions.Filename, "f", "./stor.json", "storage filename")
+	flag.StringVar(&StartOptions.DBConStr, "d", postgreConStr, "DSN (for database)")
 	// set version in usage output
 	flag.Usage = func() {
 		// TODO: How should I handle this error the best???
@@ -53,5 +62,8 @@ func SetConfig() {
 	}
 	if envFilename := os.Getenv("FILE_STORAGE_PATH"); envFilename != "" {
 		StartOptions.Filename = envFilename
+	}
+	if envDsnDB := os.Getenv("DATABASE_DSN"); envDsnDB != "" {
+		StartOptions.DBConStr = envDsnDB
 	}
 }

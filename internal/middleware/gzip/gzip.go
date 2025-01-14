@@ -3,20 +3,19 @@ package gzip
 import (
 	"compress/gzip"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"strings"
 )
 
-type GzipMW struct {
+/*type GzipLogger struct {
 	logger *zap.Logger
 }
 
-func NewGzipMW(logger *zap.Logger) *GzipMW {
-	return &GzipMW{logger: logger}
+func NewGzipLogger(logger *zap.Logger) *GzipLogger {
+	return &GzipLogger{logger: logger}
 }
-
+*/
 // compressWriter implements interface  http.ResponseWriter и позволяет прозрачно для сервера
 // сжимать передаваемые данные и выставлять правильные HTTP-заголовки
 type compressWriter struct {
@@ -94,15 +93,17 @@ func GzMW(h http.Handler) http.Handler {
 			fmt.Println("[INFO] req.Body = ", req.Body)
 			cr, err := newCompressReader(req.Body)
 			if err != nil {
+				fmt.Println(err)
 				fmt.Println("[ERROR] 500")
 				res.WriteHeader(http.StatusInternalServerError)
 				// TODO mb I should call handler with original res and req here?
 				return
 			}
-			// change request body to a new one
+			// меняем тело запроса на новое
 			req.Body = cr
 			defer cr.Close()
 		}
+		//h.ServeHTTP(res, req)
 
 		// проверяем, что клиент умеет получать от сервера сжатые данные в формате gzip
 		acceptEncoding := req.Header.Get("Accept-Encoding") // это выставляет клиент

@@ -22,8 +22,7 @@ func TestCreateShortURLHandler(t *testing.T) {
 		{
 			name: "simple POST_test #1",
 			want: want{
-				//code: 201,
-				code: 200,
+				code: 201,
 			},
 		},
 	}
@@ -66,8 +65,7 @@ func TestGetLongURLHandler(t *testing.T) {
 		{
 			name: "simple GET_test #1",
 			want: want{
-				//code: 400,
-				code: 200,
+				code: 400,
 			},
 		},
 	}
@@ -113,8 +111,7 @@ func TestCreateShortURLJSONHandler(t *testing.T) {
 			method:   http.MethodGet,
 			contType: "application/json",
 			want: want{
-				//code: 400, // TODO: mb here must be error 405?? TROUBLE
-				code: 200,
+				code: 400, // TODO: mb here must be error 405?? TROUBLE
 			},
 		},
 
@@ -123,8 +120,7 @@ func TestCreateShortURLJSONHandler(t *testing.T) {
 			method:   http.MethodPost,
 			contType: "text/plain charset=UTF-8",
 			want: want{
-				//code: 400,
-				code: 200,
+				code: 400,
 			},
 		},
 	}
@@ -135,7 +131,8 @@ func TestCreateShortURLJSONHandler(t *testing.T) {
 			request.Header.Set("Content-Type", test.contType)
 			// create a new Recorder
 			w := httptest.NewRecorder()
-			//CreateShortURLJSONHandler(w, request)
+			//ctrl := Controller{}
+			//ctrl.CreateShortURLJSONHandler()
 
 			res := w.Result()
 			// check response code (Method not allowed)
