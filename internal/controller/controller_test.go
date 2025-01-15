@@ -135,7 +135,8 @@ func TestCreateShortURLJSONHandler(t *testing.T) {
 			request.Header.Set("Content-Type", test.contType)
 			// create a new Recorder
 			w := httptest.NewRecorder()
-			//CreateShortURLJSONHandler(w, request)
+			//ctrl := Controller{}
+			//ctrl.CreateShortURLJSONHandler()
 
 			res := w.Result()
 			// check response code (Method not allowed)
