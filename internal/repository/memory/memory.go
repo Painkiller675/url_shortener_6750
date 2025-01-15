@@ -57,5 +57,6 @@ func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) 
 }
 
 func (s *Storage) Ping(ctx context.Context) error {
+	fmt.Println("[INFO] ping from the memory")
 	return errors.New("DB isn't available")
 }

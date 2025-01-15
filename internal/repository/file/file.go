@@ -21,6 +21,7 @@ type Storage struct {
 }
 
 func NewStorage(filename string, logger *zap.Logger) *Storage {
+	fmt.Println("[INFO] file storage is available")
 	return &Storage{
 		alURLStorage: make(map[string]string), // mb save all the struct but wht about logger etc?
 		mx:           &sync.RWMutex{},
@@ -42,6 +43,7 @@ func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string) (int
 
 // a blind plug to be able to implement the interface
 func (s *Storage) Ping(ctx context.Context) error {
+	fmt.Println("[INFO] ping from the file")
 	return errors.New("DB isn't available")
 }
 

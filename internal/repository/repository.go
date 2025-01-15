@@ -34,7 +34,7 @@ func ChooseStorage(logger *zap.Logger) (URLStorage, error) {
 		return pgStor, nil
 	}
 	// if the file storage
-	if config.StartOptions.DBConStr != "" {
+	if config.StartOptions.Filename != "" {
 		return file.NewStorage(config.StartOptions.Filename, logger), nil
 	}
 	// if the memory storage
