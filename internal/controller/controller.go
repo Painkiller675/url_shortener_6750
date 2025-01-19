@@ -179,7 +179,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
-		// check the body:
+		// check the body: TODO: del reuse bbody
 		bbody := req.Body
 		body, err := io.ReadAll(bbody)
 		if err != nil || len(body) == 0 {
@@ -241,8 +241,6 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 				ShortURL:      config.StartOptions.BaseURL + "/" + idSh.ShortURL,
 			})
 		}
-		res.Header().Set("Content-Type", "application/json")
-		res.WriteHeader(http.StatusCreated)
 
 		// marshal data for response
 		marData, err := json.Marshal(response)
