@@ -179,26 +179,14 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
-		var checkstruct []models.JSONBatStructToDesReq
-		err := json.NewDecoder(req.Body).Decode(checkstruct)
-		switch {
-		case err == io.EOF:
-			c.logger.Info("Body is empty!", zap.Error(err))
-			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return
-		case err != nil:
-			c.logger.Info("Body is bad!", zap.Error(err))
-			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return
-		}
 		// check the body:
-		/*body, err := io.ReadAll(req.Body)
+		bbody := req.Body
+		body, err := io.ReadAll(bbody)
 		if err != nil || len(body) == 0 {
 			c.logger.Info("Body is empty!", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
-		*/
 
 		// create the array of structures to deserialize data
 		var desBatchStruct []models.JSONBatStructToDesReq
@@ -214,7 +202,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 
 		var buf bytes.Buffer
 		// feed data from the body into the buffer
-		if _, err := buf.ReadFrom(req.Body); err != nil {
+		if _, err := buf.ReadFrom(bbody); err != nil {
 			c.logger.Info("[ERROR]", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) // TODO [MENTOR]: BadRequest or InternalServerError?
 			return
