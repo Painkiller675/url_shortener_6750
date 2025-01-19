@@ -50,7 +50,7 @@ func main() {
 		r.Get("/ping", c.PingDB(ctx))
 		r.Get("/{id}", c.GetLongURLHandler(ctx))
 		r.Post("/api/shorten", c.CreateShortURLJSONHandler(ctx))
-		//r.Post("/api/shorten/batch", c.CreateShortURLJSONBatchHandler)
+		r.Post("/api/shorten/batch", c.CreateShortURLJSONBatchHandler(ctx))
 
 	})
 	//start server

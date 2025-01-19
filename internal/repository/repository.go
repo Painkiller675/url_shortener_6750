@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
+	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository/file"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository/memory"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository/pg"
@@ -15,6 +16,8 @@ type URLStorage interface {
 	StoreAlURL(ctx context.Context, alias string, url string) (int64, error)
 	GetOrURLByAl(ctx context.Context, alias string) (string, error)
 	Ping(ctx context.Context) error
+	SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIdOrSh) (*[]models.JSONBatStructToSerResp, error)
+	GetAlByURL(ctx context.Context, url string) (string, error)
 }
 
 func ChooseStorage(logger *zap.Logger) (URLStorage, error) {

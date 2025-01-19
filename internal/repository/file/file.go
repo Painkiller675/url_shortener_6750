@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
+	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"go.uber.org/zap"
 	"io"
 	"os"
@@ -17,7 +18,7 @@ type Storage struct {
 	alURLStorage map[string]string `json:"-"`
 	Filename     string            `json:"-"`
 	mx           *sync.RWMutex     `json:"-"` // TODO pointer or not??
-	Logger       *zap.Logger       `json:"-"`
+	Logger       *zap.Logger       `json:"-"` // TODO [MENTOR] make it public or private and why???
 }
 
 func NewStorage(filename string, logger *zap.Logger) *Storage {
@@ -47,6 +48,28 @@ func (s *Storage) Ping(ctx context.Context) error {
 	return errors.New("DB isn't available")
 }
 
+// used just in pg option
+func (s *Storage) GetAlByURL(_ context.Context, _ string) (string, error) { return "", nil }
+
+func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIdOrSh) (*[]models.JSONBatStructToSerResp, error) {
+	const op = "file.SaveBatchURL"
+	// create the arrays of structs for response
+	toResp := make([]models.JSONBatStructToSerResp, len(*corURLSh)) // TODO [MENTOR]: is it ok allocation?
+	// saving ..
+	for _, idURLSh := range *corURLSh {
+		_, err := s.StoreAlURL(ctx, idURLSh.ShortURL, idURLSh.OriginalURL) // TODO: how to use _ here?
+		if err != nil {
+			s.Logger.Info(op, zap.String("filename", config.StartOptions.Filename), zap.Error(err))
+			return nil, err
+		}
+		// molding the object for response (in controller)
+		toResp = append(toResp, models.JSONBatStructToSerResp{
+			CorrelationID: idURLSh.CorrelationID,
+			ShortURL:      idURLSh.ShortURL,
+		})
+	}
+	return &toResp, nil
+}
 func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) {
 	s.mx.Lock()
 	defer s.mx.Unlock()

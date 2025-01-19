@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
+	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
 	"github.com/Painkiller675/url_shortener_6750/internal/service"
 	"go.uber.org/zap"
@@ -22,18 +23,6 @@ type JSONStructSh struct {
 }
 type JSONStructOr struct {
 	OrURL string `json:"url"`
-}
-
-// structs for the batch
-
-type JSONBatStructDes struct {
-	CorrelationID int64  `json:"correlation_id"`
-	OriginalURL   string `json:"original_url"`
-}
-
-type JSONBatStructSer struct {
-	CorrelationID int64  `json:"correlation_id"`
-	ShortURL      string `json:"short_url"`
 }
 
 type Controller struct {
@@ -57,7 +46,7 @@ func (c *Controller) CreateShortURLHandler(ctx context.Context) http.HandlerFunc
 		}
 
 		// write an alias
-		randAl := service.GetRandString(8)
+		randAl := service.GetRandString(string(body))
 		_, err = c.storage.StoreAlURL(ctx, randAl, string(body)) // TODO [MENTOR]: mb del _ or change driver to support id?
 		if err != nil {
 			c.logger.Info("Failed to store URL", zap.Error(err))
@@ -126,7 +115,7 @@ func (c *Controller) CreateShortURLJSONHandler(ctx context.Context) http.Handler
 			return
 		}
 		// calculate the alias
-		randAl := service.GetRandString(8)
+		randAl := service.GetRandString(orStruct.OrURL)
 		// write into a storage to allow getting the data
 		_, err := c.storage.StoreAlURL(ctx, randAl, orStruct.OrURL)
 		if err != nil {
@@ -153,8 +142,7 @@ func (c *Controller) CreateShortURLJSONHandler(ctx context.Context) http.Handler
 			return
 		}
 		// headers molding
-		res.Header().Set("Content-Type", "application"+
-			"/json")
+		res.Header().Set("Content-Type", "application/json")
 		//res.Header().Set("Content-Length", strconv.Itoa(len(marData)))
 		res.WriteHeader(http.StatusCreated) // 201
 		// response body molding
@@ -182,62 +170,84 @@ func (c *Controller) PingDB(ctx context.Context) http.HandlerFunc {
 	}
 }
 
-/*
-func (c *Controller) CreateShortURLJSONBatchHandler (res http.ResponseWriter, req *http.Request) {
-		//check content-type
+func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		//check content-type (application/json)
 		if ok := strings.Contains(req.Header.Get("Content-Type"), "application/json"); !ok {
-			c.logger.Info("[INFO]", zap.String("body", "no content type"), zap.String("method", req.Method), zap.String("url", req.URL.Path))
+			c.logger.Info("[INFO]", zap.String("body", "no content type application/json"), zap.String("method", req.Method), zap.String("url", req.URL.Path))
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
-		var jsStructsDes []JSONBatStructDes
-		var jsStructsSer []JSONBatStructSer
+		// create the array of structures to deserialize data
+		var desBatchStruct []models.JSONBatStructToDesReq
+
+		//TODO: [MENTOR] Should I implement such a check?
+		/*
+			dec := json.NewDecoder(req.Body)
+				if err := dec.Decode(&request); err != nil {
+					httpError.RespondWithError(res, http.StatusInternalServerError, "Invalid JSON body")
+					return
+				}
+		*/
+
 		var buf bytes.Buffer
 		// feed data from the body into the buffer
 		if _, err := buf.ReadFrom(req.Body); err != nil {
 			c.logger.Info("[ERROR]", zap.Error(err))
-			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) // TODO [MENTOR]: BadRequest or InternalServerError?
 			return
 		}
-		// deserialize JSON into JSStruct
-		if err := json.Unmarshal(buf.Bytes(), &orStruct); err != nil {
+		// deserialize JSON batch into desBatchStruct
+		if err := json.Unmarshal(buf.Bytes(), &desBatchStruct); err != nil {
 			c.logger.Info("[ERROR]", zap.Error(err))
-			http.Error(res, err.Error(), http.StatusBadRequest)
+			http.Error(res, err.Error(), http.StatusBadRequest) // TODO [MENTOR]: BadRequest or InternalServerError?
 			return
 		}
-		fmt.Println("orStruct.OrURL = ", orStruct.OrURL)
-		// calculate the alias
-		randAl := service.GetRandString(8)
-		// write into safeStorage to allow getting the data
-		c.storage.SafeStorage.StoreAlURL(randAl, orStruct.OrURL)
-		// base URL
-		baseURL := config.StartOptions.BaseURL
-		shURL, err := url.JoinPath(baseURL, randAl)
+		fmt.Println("desBatchStruct = ", desBatchStruct)
 
+		// create an auxiliary array of structures
+		idURLAl, err := service.CreateBatchIdOrSh(&desBatchStruct)
+		if err != nil {
+			c.logger.Info("[INFO]", zap.Error(err))
+			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError) // TODO [MENTOR]: BadRequest or InternalServerError?
+			return
+		}
+
+		// save data into the database and create respBatch for response
+		respBatch, err := c.storage.SaveBatchURL(ctx, idURLAl)
 		if err != nil {
 			c.logger.Info("[ERROR]", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		// add short URL to the auxiliary struct
-		jsStruct.ShURL = shURL
+		// create the array of structs to add base url to response
+		response := make([]models.JSONBatStructToSerResp, 0) //TODO [MENTOR] is it a good allocation or I should use len?
+		// molding the response
+		for _, idSh := range *respBatch {
+			response = append(response, models.JSONBatStructToSerResp{
+				CorrelationID: idSh.CorrelationID,
+				ShortURL:      config.StartOptions.BaseURL + "/" + idSh.ShortURL,
+			})
+		}
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusCreated)
+
 		// marshal data for response
-		marData, err := json.Marshal(jsStruct)
+		marData, err := json.Marshal(response)
 		if err != nil {
 			c.logger.Info("[ERROR]", zap.Error(err))
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		// headers molding
-		res.Header().Set("Content-Type", "application"+
-			"/json")
-		//res.Header().Set("Content-Length", strconv.Itoa(len(marData)))
+		// write headers
+		res.Header().Set("Content-Type", "application/json")
 		res.WriteHeader(http.StatusCreated) // 201
+
 		// response body molding
 		_, err = res.Write(marData)
 		if err != nil {
 			c.logger.Info("[ERROR]", zap.Error(err))
 			return
 		}
+	}
 }
-*/

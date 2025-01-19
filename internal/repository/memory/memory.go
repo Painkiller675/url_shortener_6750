@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Painkiller675/url_shortener_6750/internal/models"
+
 	//"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"go.uber.org/zap"
 	"sync"
@@ -56,7 +58,29 @@ func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) 
 	return "", er //TODO: handle that more properly
 }
 
+func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIdOrSh) (*[]models.JSONBatStructToSerResp, error) {
+	const op = "memory.SaveBatchURL"
+	// create the arrays of structs for response
+	toResp := make([]models.JSONBatStructToSerResp, len(*corURLSh)) // TODO [MENTOR]: is it ok allocation?
+	// saving ..
+	for _, idURLSh := range *corURLSh {
+		_, err := s.StoreAlURL(ctx, idURLSh.ShortURL, idURLSh.OriginalURL) // TODO: how to use _ here?
+		if err != nil {
+			s.logger.Info(op, zap.Error(err))
+			return nil, err
+		}
+		// molding object for response
+		toResp = append(toResp, models.JSONBatStructToSerResp{
+			CorrelationID: idURLSh.CorrelationID,
+			ShortURL:      idURLSh.ShortURL,
+		})
+	}
+	return &toResp, nil
+}
+
 func (s *Storage) Ping(ctx context.Context) error {
 	fmt.Println("[INFO] ping from the memory")
 	return errors.New("DB isn't available")
 }
+
+func (s *Storage) GetAlByURL(ctx context.Context, url string) (string, error) { return "", nil }
