@@ -42,6 +42,5 @@ func ChooseStorage(logger *zap.Logger) (URLStorage, error) {
 	}
 	// if the memory storage
 	return memory.NewStorage(logger), nil
-	// TODO other storages
-	// конфиг сюда и вернунуть urlstorage и error и вызывать буду в main тут я вызываю конструкторы файла или мемори и сразу возвращаю их в main
+
 }
