@@ -28,7 +28,7 @@ func GetRandString(s string) string {
 
 }
 
-func CreateBatchIdOrSh(desBatchReq *[]models.JSONBatStructToDesReq) (*[]models.JSONBatStructIDOrSh, error) {
+func CreateBatchIDOrSh(desBatchReq *[]models.JSONBatStructToDesReq) (*[]models.JSONBatStructIDOrSh, error) {
 	// allocate memory for an auxiliary array of structs
 	idURLSh := make([]models.JSONBatStructIDOrSh, len(*desBatchReq)) // TODO [MENTOR]: is it well-allocated?
 	// filling the array
