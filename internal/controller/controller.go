@@ -179,12 +179,13 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 			return
 		}
 		// check the body:
-		body, err := io.ReadAll(req.Body)
+		/*body, err := io.ReadAll(req.Body)
 		if err != nil || len(body) == 0 {
 			c.logger.Info("Body is empty!", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
+		*/
 		// create the array of structures to deserialize data
 		var desBatchStruct []models.JSONBatStructToDesReq
 
@@ -214,6 +215,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 
 		// create an auxiliary array of structures
 		idURLAl, err := service.CreateBatchIDOrSh(&desBatchStruct)
+		fmt.Println("idURLAl = ", *idURLAl)
 		if err != nil {
 			c.logger.Info("[INFO]", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError) // TODO [MENTOR]: BadRequest or InternalServerError?
@@ -222,6 +224,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 
 		// save data into the database and create respBatch for response
 		respBatch, err := c.storage.SaveBatchURL(ctx, idURLAl)
+		fmt.Println("respBatch = ", *respBatch)
 		if err != nil {
 			c.logger.Info("[ERROR]", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
