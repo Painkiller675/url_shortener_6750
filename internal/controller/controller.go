@@ -178,6 +178,13 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
+		// check the body:
+		body, err := io.ReadAll(req.Body)
+		if err != nil || len(body) == 0 {
+			c.logger.Info("Body is empty!", zap.Error(err))
+			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
 		// create the array of structures to deserialize data
 		var desBatchStruct []models.JSONBatStructToDesReq
 
