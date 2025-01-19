@@ -80,6 +80,7 @@ func (c *Controller) GetLongURLHandler(ctx context.Context) http.HandlerFunc {
 		idAl := req.PathValue("id") // the cap
 		// response molding ...
 		orURL, err := c.storage.GetOrURLByAl(ctx, idAl)
+		fmt.Println("orURL in GetLongURLHandler = ", orURL)
 		if err != nil { // TODO: mb I should use status 500 here?
 			c.logger.Info("Failed to get orURL", zap.String("id", idAl), zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)

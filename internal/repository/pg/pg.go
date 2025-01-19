@@ -64,6 +64,7 @@ func (s *Storage) StoreAlURL(ctx context.Context, alias string, url string) (int
 
 	_, err = stmt.ExecContext(ctx, alias, url) // _ = res (to ge LastId)
 	if err != nil {
+		fmt.Printf("%s: %s\n", op, err)
 		// TODO: what does it actually mean???
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
@@ -106,6 +107,7 @@ func (s *Storage) GetAlByURL(ctx context.Context, url string) (string, error) {
 	row := s.conn.QueryRowContext(ctx, "SELECT alias FROM url WHERE url=$1;", url)
 	var alias string
 	err := row.Scan(&alias)
+	fmt.Println("REPEAT FROM PG, alias =", alias)
 	if err != nil {
 		// if alias doesn't exist // TODO: [MENTOR] it's impossible, should I del that?
 		if errors.Is(err, pgx.ErrNoRows) { // TODO [4 MENTOR]: why it doesn't work?!
