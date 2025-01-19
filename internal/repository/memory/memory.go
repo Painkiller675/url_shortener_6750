@@ -58,7 +58,7 @@ func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) 
 	return "", er //TODO: handle that more properly
 }
 
-func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIdOrSh) (*[]models.JSONBatStructToSerResp, error) {
+func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIDOrSh) (*[]models.JSONBatStructToSerResp, error) {
 	const op = "memory.SaveBatchURL"
 	// create the arrays of structs for response
 	toResp := make([]models.JSONBatStructToSerResp, len(*corURLSh)) // TODO [MENTOR]: is it ok allocation?

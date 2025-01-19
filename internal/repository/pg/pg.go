@@ -131,7 +131,7 @@ func (s *Storage) Ping(ctx context.Context) error {
 
 }
 
-func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIdOrSh) (*[]models.JSONBatStructToSerResp, error) {
+func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIDOrSh) (*[]models.JSONBatStructToSerResp, error) {
 	const op = "pg.SaveBatchURL"
 	// запускаем транзакцию
 	tx, err := s.conn.BeginTx(ctx, nil)
@@ -148,24 +148,26 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 	for _, idURLSh := range *corURLSh {
 		_, err := s.StoreAlURL(ctx, idURLSh.ShortURL, idURLSh.OriginalURL)
 		// TODO: if exists => get it from DB for response
-		if errors.Is(err, merrors.ErrURLOrAliasExists) {
-			existAl, err := s.GetAlByURL(ctx, idURLSh.ShortURL)
-			if err != nil {
+		if err != nil {
+			if errors.Is(err, merrors.ErrURLOrAliasExists) {
+				existAl, err := s.GetAlByURL(ctx, idURLSh.ShortURL)
+				if err != nil {
+					return nil, fmt.Errorf("%s: %w", op, err)
+				}
+				//filling for response
+				toResp = append(toResp, models.JSONBatStructToSerResp{
+					CorrelationID: idURLSh.CorrelationID,
+					ShortURL:      existAl,
+				})
+				continue
+
+				// TODO: wrap all errors from StoreAlURL or use logger right here
+
+			} else { // other possible errors
 				return nil, fmt.Errorf("%s: %w", op, err)
 			}
-			//filling for response
-			toResp = append(toResp, models.JSONBatStructToSerResp{
-				CorrelationID: idURLSh.CorrelationID,
-				ShortURL:      existAl,
-			})
-			continue
-
-			// TODO: wrap all errors from StoreAlURL or use logger right here
-
-		} else { // other possible errors
-			return nil, fmt.Errorf("%s: %w", op, err)
 		}
-		// TODO: why this code is unreachable??
+
 		toResp = append(toResp, models.JSONBatStructToSerResp{
 			CorrelationID: idURLSh.CorrelationID,
 			ShortURL:      idURLSh.ShortURL,

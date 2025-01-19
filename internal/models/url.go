@@ -12,7 +12,7 @@ type JSONBatStructToSerResp struct {
 	ShortURL      string `json:"short_url"`
 }
 
-type JSONBatStructIdOrSh struct {
+type JSONBatStructIDOrSh struct {
 	CorrelationID int64  `json:"-"`
 	OriginalURL   string `json:"-"`
 	ShortURL      string `json:"-"`

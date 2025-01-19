@@ -51,7 +51,7 @@ func (s *Storage) Ping(ctx context.Context) error {
 // used just in pg option
 func (s *Storage) GetAlByURL(_ context.Context, _ string) (string, error) { return "", nil }
 
-func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIdOrSh) (*[]models.JSONBatStructToSerResp, error) {
+func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIDOrSh) (*[]models.JSONBatStructToSerResp, error) {
 	const op = "file.SaveBatchURL"
 	// create the arrays of structs for response
 	toResp := make([]models.JSONBatStructToSerResp, len(*corURLSh)) // TODO [MENTOR]: is it ok allocation?

@@ -28,13 +28,13 @@ func GetRandString(s string) string {
 
 }
 
-func CreateBatchIdOrSh(desBatchReq *[]models.JSONBatStructToDesReq) (*[]models.JSONBatStructIdOrSh, error) {
+func CreateBatchIdOrSh(desBatchReq *[]models.JSONBatStructToDesReq) (*[]models.JSONBatStructIDOrSh, error) {
 	// allocate memory for an auxiliary array of structs
-	idURLSh := make([]models.JSONBatStructIdOrSh, len(*desBatchReq)) // TODO [MENTOR]: is it well-allocated?
+	idURLSh := make([]models.JSONBatStructIDOrSh, len(*desBatchReq)) // TODO [MENTOR]: is it well-allocated?
 	// filling the array
 	for _, idURL := range *desBatchReq {
 		randAl := GetRandString(idURL.OriginalURL)
-		idURLSh = append(idURLSh, models.JSONBatStructIdOrSh{
+		idURLSh = append(idURLSh, models.JSONBatStructIDOrSh{
 			CorrelationID: idURL.CorrelationID,
 			OriginalURL:   idURL.OriginalURL,
 			ShortURL:      randAl,

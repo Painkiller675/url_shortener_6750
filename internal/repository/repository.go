@@ -16,7 +16,7 @@ type URLStorage interface {
 	StoreAlURL(ctx context.Context, alias string, url string) (int64, error)
 	GetOrURLByAl(ctx context.Context, alias string) (string, error)
 	Ping(ctx context.Context) error
-	SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIdOrSh) (*[]models.JSONBatStructToSerResp, error)
+	SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIDOrSh) (*[]models.JSONBatStructToSerResp, error)
 	GetAlByURL(ctx context.Context, url string) (string, error)
 }
 
