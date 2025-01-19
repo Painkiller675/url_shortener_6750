@@ -30,7 +30,7 @@ func GetRandString(s string) string {
 
 func CreateBatchIDOrSh(desBatchReq *[]models.JSONBatStructToDesReq) (*[]models.JSONBatStructIDOrSh, error) {
 	// allocate memory for an auxiliary array of structs
-	idURLSh := make([]models.JSONBatStructIDOrSh, len(*desBatchReq)) // TODO [MENTOR]: is it well-allocated?
+	idURLSh := make([]models.JSONBatStructIDOrSh, 0) // TODO [MENTOR]: is it well-allocated? Why len(desBatchReq) instead of 0 is false??
 	// filling the array
 	for _, idURL := range *desBatchReq {
 		randAl := GetRandString(idURL.OriginalURL)

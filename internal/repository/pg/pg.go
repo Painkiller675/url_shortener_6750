@@ -142,7 +142,7 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 	// в случае неуспешного коммита все изменения транзакции будут отменены
 	defer tx.Rollback()
 	// create value to store data for response
-	toResp := make([]models.JSONBatStructToSerResp, len(*corURLSh)) // TODO: is it ok allocation?
+	toResp := make([]models.JSONBatStructToSerResp, 0) // TODO [MENTOR]: is it ok allocation? why len(*corURLSh) is false instead of 0?
 	// fill transaction with insert queries:
 
 	for _, idURLSh := range *corURLSh {

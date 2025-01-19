@@ -215,7 +215,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 
 		// create an auxiliary array of structures
 		idURLAl, err := service.CreateBatchIDOrSh(&desBatchStruct)
-		fmt.Println("idURLAl = ", *idURLAl)
+		fmt.Println("idURLAl = ", idURLAl)
 		if err != nil {
 			c.logger.Info("[INFO]", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError) // TODO [MENTOR]: BadRequest or InternalServerError?

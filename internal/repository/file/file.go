@@ -54,7 +54,7 @@ func (s *Storage) GetAlByURL(_ context.Context, _ string) (string, error) { retu
 func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIDOrSh) (*[]models.JSONBatStructToSerResp, error) {
 	const op = "file.SaveBatchURL"
 	// create the arrays of structs for response
-	toResp := make([]models.JSONBatStructToSerResp, len(*corURLSh)) // TODO [MENTOR]: is it ok allocation?
+	toResp := make([]models.JSONBatStructToSerResp, 0) // TODO [MENTOR]: is it ok allocation? why len(*corURLSh) is false?
 	// saving ..
 	for _, idURLSh := range *corURLSh {
 		_, err := s.StoreAlURL(ctx, idURLSh.ShortURL, idURLSh.OriginalURL) // TODO: how to use _ here?
