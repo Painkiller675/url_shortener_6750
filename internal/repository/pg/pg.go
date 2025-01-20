@@ -83,7 +83,7 @@ func (s *Storage) StoreAlURL(ctx context.Context, alias string, url string) (int
 				//	Err:          merrors.ErrURLOrAliasExists,
 			}
 		}
-		err = merrors.ErrURLOrAliasExists
+		//err = merrors.ErrURLOrAliasExists
 	}
 	return 0, nil
 	//return 0, fmt.Errorf("%s: %w", op, err)
