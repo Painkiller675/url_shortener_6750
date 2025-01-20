@@ -38,7 +38,7 @@ func SetConfig() {
 	flag.StringVar(&StartOptions.HTTPServer.Address, "a", "localhost:8080", "HTTP-server address")
 	flag.StringVar(&StartOptions.BaseURL, "b", "http://localhost:8080/", "base URL")
 	flag.StringVar(&StartOptions.LogLvl, "l", "info", "log level")
-	flag.StringVar(&StartOptions.Filename, "f", "./stor.json", "storage filename")
+	flag.StringVar(&StartOptions.Filename, "f", "", "storage filename")
 	flag.StringVar(&StartOptions.DBConStr, "d", "", "DSN (for database)")
 	// set version in usage output
 	flag.Usage = func() {
