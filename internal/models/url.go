@@ -17,3 +17,13 @@ type JSONBatStructIDOrSh struct {
 	OriginalURL   string `json:"-"`
 	ShortURL      string `json:"-"`
 }
+
+/*type ExistsURLError struct {
+	ExistedAlias string
+	Err          error
+}
+
+func (e *ExistsURLError) Error() string {
+	return fmt.Sprintf("[%s:%v]", e.ExistedAlias, e.Err)
+}
+*/

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
+	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
 	"github.com/Painkiller675/url_shortener_6750/internal/service"
@@ -48,10 +50,17 @@ func (c *Controller) CreateShortURLHandler(ctx context.Context) http.HandlerFunc
 		// write an alias
 		randAl := service.GetRandString(string(body))
 		_, err = c.storage.StoreAlURL(ctx, randAl, string(body)) // TODO [MENTOR]: mb del _ or change driver to support id?
+		httpStatus := http.StatusCreated
 		if err != nil {
-			c.logger.Info("Failed to store URL", zap.Error(err))
-			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
+			if errors.Is(err, merrors.ErrURLOrAliasExists) { // the try to short already existed url pg database
+				c.logger.Info("URL already exists!", zap.Error(err))
+				httpStatus = http.StatusConflict
+			} else {
+				c.logger.Info("Failed to store URL", zap.Error(err))
+				http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+
 		}
 
 		// response molding
@@ -66,7 +75,7 @@ func (c *Controller) CreateShortURLHandler(ctx context.Context) http.HandlerFunc
 
 		res.Header().Set("Content-Type", "text/plain")
 		res.Header().Set("Content-Length", strconv.Itoa(len([]byte(resultURL))))
-		res.WriteHeader(http.StatusCreated) // 201
+		res.WriteHeader(httpStatus) // 201 or 409
 		_, err = res.Write([]byte(resultURL))
 		if err != nil {
 			c.logger.Info("Failed to write response", zap.Error(err))
@@ -119,10 +128,16 @@ func (c *Controller) CreateShortURLJSONHandler(ctx context.Context) http.Handler
 		randAl := service.GetRandString(orStruct.OrURL)
 		// write into a storage to allow getting the data
 		_, err := c.storage.StoreAlURL(ctx, randAl, orStruct.OrURL)
+		httpStatus := http.StatusCreated
 		if err != nil {
-			c.logger.Info("Failed to store URL", zap.String("place:", op), zap.Error(err))
-			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
+			if errors.Is(err, merrors.ErrURLOrAliasExists) { // if alias for url already exists in the pg database
+				c.logger.Info("URL already exists!", zap.Error(err))
+				httpStatus = http.StatusConflict
+			} else {
+				c.logger.Info("Failed to store URL", zap.String("place:", op), zap.Error(err))
+				http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
 		}
 		// base URL
 		baseURL := config.StartOptions.BaseURL
@@ -145,7 +160,7 @@ func (c *Controller) CreateShortURLJSONHandler(ctx context.Context) http.Handler
 		// headers molding
 		res.Header().Set("Content-Type", "application/json")
 		//res.Header().Set("Content-Length", strconv.Itoa(len(marData)))
-		res.WriteHeader(http.StatusCreated) // 201
+		res.WriteHeader(httpStatus) // 201 or 409
 		// response body molding
 		_, err = res.Write(marData)
 		if err != nil {
@@ -179,7 +194,19 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
+
 		// check the body: TODO: del reuse bbody
+
+		//check the body
+		body, err := io.ReadAll(req.Body)
+		if err != nil || len(body) == 0 {
+			c.logger.Info("Body is empty!", zap.Error(err))
+			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+
+		// Replace the body with a new reader after reading from the original
+		req.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		// create the array of structures to deserialize data
 		var desBatchStruct []models.JSONBatStructToDesReq
@@ -200,6 +227,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) // TODO [MENTOR]: BadRequest or InternalServerError?
 			return
 		}
+		defer req.Body.Close() // TODO [MENTOR] I didn't assign it should I close it??
 		// deserialize JSON batch into desBatchStruct
 		if err := json.Unmarshal(buf.Bytes(), &desBatchStruct); err != nil {
 			c.logger.Info("[ERROR]", zap.Error(err))

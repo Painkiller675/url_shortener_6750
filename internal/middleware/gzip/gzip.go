@@ -90,7 +90,7 @@ func GzMW(h http.Handler) http.Handler {
 		if sendsGzip {
 			fmt.Println("[INFO] Content-Encoding is gzip")
 			// wrap request body into io.Reader with decompression available
-			fmt.Println("[INFO] req.Body = ", req.Body)
+			//fmt.Println("[INFO] req.Body = ", req.Body)
 			cr, err := newCompressReader(req.Body)
 			if err != nil {
 				fmt.Println(err)
