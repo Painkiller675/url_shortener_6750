@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
@@ -65,9 +64,7 @@ func (c *Controller) CreateShortURLHandler(ctx context.Context) http.HandlerFunc
 
 		// response molding
 		baseURL := config.StartOptions.BaseURL
-		fmt.Println("BASE URL in CreateNoJS = ", baseURL)
 		resultURL, err := url.JoinPath(baseURL, randAl)
-		fmt.Println("resultURL in CreateNOJS = ", resultURL)
 		if err != nil {
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
@@ -89,7 +86,6 @@ func (c *Controller) GetLongURLHandler(ctx context.Context) http.HandlerFunc {
 		idAl := req.PathValue("id") // the cap
 		// response molding ...
 		orURL, err := c.storage.GetOrURLByAl(ctx, idAl)
-		fmt.Println("orURL in GetLongURLHandler = ", orURL)
 		if err != nil { // TODO: mb I should use status 500 here?
 			c.logger.Info("Failed to get orURL", zap.String("id", idAl), zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -153,7 +149,7 @@ func (c *Controller) CreateShortURLJSONHandler(ctx context.Context) http.Handler
 		// marshal data for response
 		marData, err := json.Marshal(jsStruct)
 		if err != nil {
-			c.logger.Info("[ERROR]", zap.Error(err))
+			c.logger.Error("[ERROR]", zap.Error(err))
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -164,7 +160,7 @@ func (c *Controller) CreateShortURLJSONHandler(ctx context.Context) http.Handler
 		// response body molding
 		_, err = res.Write(marData)
 		if err != nil {
-			c.logger.Info("[ERROR]", zap.Error(err))
+			c.logger.Error("[ERROR]", zap.Error(err))
 			return
 		}
 	}
@@ -176,7 +172,7 @@ func (c *Controller) PingDB(ctx context.Context) http.HandlerFunc {
 		err := c.storage.Ping(ctx)
 		// if no connection
 		if err != nil {
-			c.logger.Info("[ERROR]", zap.String("PingDB", "Can't ping pg database!"), zap.Error(err))
+			c.logger.Warn("[WARNING]", zap.String("PingDB", "Can't ping pg database!"), zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
@@ -190,7 +186,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 	return func(res http.ResponseWriter, req *http.Request) {
 		//check content-type (application/json)
 		if ok := strings.Contains(req.Header.Get("Content-Type"), "application/json"); !ok {
-			c.logger.Info("[INFO]", zap.String("body", "no content type application/json"), zap.String("method", req.Method), zap.String("url", req.URL.Path))
+			c.logger.Warn("[WARNING]", zap.String("body", "no content type application/json"), zap.String("method", req.Method), zap.String("url", req.URL.Path))
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
@@ -223,33 +219,30 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 		var buf bytes.Buffer
 		// feed data from the body into the buffer
 		if _, err := buf.ReadFrom(req.Body); err != nil {
-			c.logger.Info("[ERROR]", zap.Error(err))
+			c.logger.Error("[ERROR]", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) // TODO [MENTOR]: BadRequest or InternalServerError?
 			return
 		}
 		defer req.Body.Close() // TODO [MENTOR] I didn't assign it should I close it??
 		// deserialize JSON batch into desBatchStruct
 		if err := json.Unmarshal(buf.Bytes(), &desBatchStruct); err != nil {
-			c.logger.Info("[ERROR]", zap.Error(err))
+			c.logger.Error("[ERROR]", zap.Error(err))
 			http.Error(res, err.Error(), http.StatusBadRequest) // TODO [MENTOR]: BadRequest or InternalServerError?
 			return
 		}
-		fmt.Println("desBatchStruct = ", desBatchStruct)
 
 		// create an auxiliary array of structures
 		idURLAl, err := service.CreateBatchIDOrSh(&desBatchStruct)
-		fmt.Println("idURLAl = ", idURLAl)
 		if err != nil {
-			c.logger.Info("[INFO]", zap.Error(err))
+			c.logger.Error("[ERROR]", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError) // TODO [MENTOR]: BadRequest or InternalServerError?
 			return
 		}
 
 		// save data into the database and create respBatch for response
 		respBatch, err := c.storage.SaveBatchURL(ctx, idURLAl)
-		fmt.Println("respBatch = ", *respBatch)
 		if err != nil {
-			c.logger.Info("[ERROR]", zap.Error(err))
+			c.logger.Error("[ERROR]", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
@@ -260,7 +253,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 		for _, idSh := range *respBatch {
 			fullShortURL, err := url.JoinPath(config.StartOptions.BaseURL, idSh.ShortURL)
 			if err != nil {
-				c.logger.Info("[ERROR]", zap.Error(err))
+				c.logger.Error("[ERROR]", zap.Error(err))
 			}
 			response = append(response, models.JSONBatStructToSerResp{
 				CorrelationID: idSh.CorrelationID,
@@ -271,7 +264,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 		// marshal data for response
 		marData, err := json.Marshal(response)
 		if err != nil {
-			c.logger.Info("[ERROR]", zap.Error(err))
+			c.logger.Error("[ERROR]", zap.Error(err))
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -282,7 +275,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 		// response body molding
 		_, err = res.Write(marData)
 		if err != nil {
-			c.logger.Info("[ERROR]", zap.Error(err))
+			c.logger.Error("[ERROR]", zap.Error(err))
 			return
 		}
 	}

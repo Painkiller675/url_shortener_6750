@@ -26,12 +26,12 @@ func ChooseStorage(logger *zap.Logger) (URLStorage, error) {
 
 		pgStor, err := pg.NewStorage(config.StartOptions.DBConStr)
 		if err != nil {
-			logger.Info("[ERROR] Can't open pg database ", zap.Error(err))
+			logger.Error("[ERROR] Can't open pg database ", zap.Error(err))
 			return nil, err // TODO: [4 MENTOR] unuseful cause I use only panic in constructor in fact, is it ok?
 		}
 		err = pgStor.Bootstrap(context.Background()) //TODO: is it ok to use new contex here?
 		if err != nil {
-			logger.Info("[ERROR] Can't bootstrap pg database ", zap.Error(err))
+			logger.Error("[ERROR] Can't bootstrap pg database ", zap.Error(err))
 			return nil, err
 		}
 		return pgStor, nil

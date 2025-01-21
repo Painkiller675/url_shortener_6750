@@ -22,7 +22,6 @@ type Storage struct {
 }
 
 func NewStorage(filename string, logger *zap.Logger) *Storage {
-	fmt.Println("[INFO] file storage is available")
 	stor, err := getStorage(filename)
 	if err != nil {
 		logger.Fatal("[FATAL] file storage is not available", zap.Error(err))
@@ -48,7 +47,6 @@ func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string) (int
 
 // a blind plug to be able to implement the interface
 func (s *Storage) Ping(ctx context.Context) error {
-	fmt.Println("[INFO] ping from the file")
 	return errors.New("DB isn't available")
 }
 
@@ -195,11 +193,9 @@ func (c *Consumer) ReadEvent() (*Storage, error) {
 	if err != nil {
 		return nil, err
 	}
-	//fmt.Println(string(data))
 	// преобразуем данные из JSON-представления в структуру
 	event := Storage{AlURLStorage: make(map[string]string)}
 	err = json.Unmarshal(data, &event)
-	fmt.Println("AFTER unmarshall: ", event)
 	if err != nil {
 		return nil, err
 	}
