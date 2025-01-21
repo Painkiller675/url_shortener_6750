@@ -256,10 +256,15 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 		// create the array of structs to add base url to response
 		response := make([]models.JSONBatStructToSerResp, 0) //TODO [MENTOR] is it a good allocation or I should use len?
 		// molding the response
+
 		for _, idSh := range *respBatch {
+			fullShortURL, err := url.JoinPath(config.StartOptions.BaseURL, idSh.ShortURL)
+			if err != nil {
+				c.logger.Info("[ERROR]", zap.Error(err))
+			}
 			response = append(response, models.JSONBatStructToSerResp{
 				CorrelationID: idSh.CorrelationID,
-				ShortURL:      config.StartOptions.BaseURL + "/" + idSh.ShortURL,
+				ShortURL:      fullShortURL,
 			})
 		}
 
