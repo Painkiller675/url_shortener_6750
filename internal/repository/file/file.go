@@ -195,7 +195,7 @@ func (c *Consumer) ReadEvent() (*Storage, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(string(data))
+	//fmt.Println(string(data))
 	// преобразуем данные из JSON-представления в структуру
 	event := Storage{AlURLStorage: make(map[string]string)}
 	err = json.Unmarshal(data, &event)
