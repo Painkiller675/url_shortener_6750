@@ -15,7 +15,7 @@ import (
 )
 
 type Storage struct {
-	alURLStorage map[string]string `json:"url_storage"`
+	AlURLStorage map[string]string `json:"url_storage"`
 	Filename     string            `json:"-"`
 	mx           *sync.RWMutex     `json:"-"` // TODO pointer or not??
 	Logger       *zap.Logger       `json:"-"` // TODO [MENTOR] make it public or private and why???
@@ -28,7 +28,7 @@ func NewStorage(filename string, logger *zap.Logger) *Storage {
 		logger.Fatal("[FATAL] file storage is not available", zap.Error(err))
 	}
 	return &Storage{
-		alURLStorage: stor.alURLStorage, // mb save all the struct but wht about logger etc?
+		AlURLStorage: stor.AlURLStorage, // mb save all the struct but wht about logger etc?
 		mx:           &sync.RWMutex{},
 		Logger:       logger,
 		Filename:     filename,
@@ -38,7 +38,7 @@ func NewStorage(filename string, logger *zap.Logger) *Storage {
 func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string) (int64, error) {
 	s.mx.Lock()
 	defer s.mx.Unlock()
-	s.alURLStorage[alias] = orURL
+	s.AlURLStorage[alias] = orURL
 	if err := saveStorage(s.Filename, s); err != nil {
 		s.Logger.Info("Failed to store the file for reading!", zap.String("filename", config.StartOptions.Filename), zap.Error(err)) // TODO mb I should panic here?
 		return 1, err                                                                                                                // 1 - a blind plug
@@ -77,7 +77,7 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) {
 	s.mx.Lock()
 	defer s.mx.Unlock()
-	if orURL, ok := s.alURLStorage[alias]; ok {
+	if orURL, ok := s.AlURLStorage[alias]; ok {
 		return orURL, nil
 	}
 	return "", fmt.Errorf("original URL for %v doesn't exist in the DB", alias) //TODO handle that!
@@ -100,7 +100,7 @@ func getStorage(filename string) (*Storage, error) {
 			//s.logger.Info("File is empty (reading)", zap.String("filename", filename))
 			// return empty storage
 			return &Storage{
-				alURLStorage: make(map[string]string),
+				AlURLStorage: make(map[string]string),
 			}, nil
 		}
 		// handle other possible errors
@@ -197,7 +197,7 @@ func (c *Consumer) ReadEvent() (*Storage, error) {
 	}
 	fmt.Println(string(data))
 	// преобразуем данные из JSON-представления в структуру
-	event := Storage{alURLStorage: make(map[string]string)}
+	event := Storage{AlURLStorage: make(map[string]string)}
 	err = json.Unmarshal(data, &event)
 	fmt.Println("AFTER unmarshall: ", event)
 	if err != nil {
