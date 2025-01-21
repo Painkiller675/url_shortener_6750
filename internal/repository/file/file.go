@@ -15,7 +15,7 @@ import (
 )
 
 type Storage struct {
-	alURLStorage map[string]string `json:"-"`
+	alURLStorage map[string]string `json:"url_storage"`
 	Filename     string            `json:"-"`
 	mx           *sync.RWMutex     `json:"-"` // TODO pointer or not??
 	Logger       *zap.Logger       `json:"-"` // TODO [MENTOR] make it public or private and why???
@@ -23,8 +23,12 @@ type Storage struct {
 
 func NewStorage(filename string, logger *zap.Logger) *Storage {
 	fmt.Println("[INFO] file storage is available")
+	stor, err := getStorage(filename)
+	if err != nil {
+		logger.Fatal("[FATAL] file storage is not available", zap.Error(err))
+	}
 	return &Storage{
-		alURLStorage: make(map[string]string), // mb save all the struct but wht about logger etc?
+		alURLStorage: stor.alURLStorage, // mb save all the struct but wht about logger etc?
 		mx:           &sync.RWMutex{},
 		Logger:       logger,
 		Filename:     filename,
@@ -90,6 +94,7 @@ func getStorage(filename string) (*Storage, error) {
 	defer opnFile.Close()
 	// read data nd get the link
 	gotData, err := opnFile.ReadEvent()
+	fmt.Println("gotData = ", gotData)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			//s.logger.Info("File is empty (reading)", zap.String("filename", filename))
@@ -192,8 +197,9 @@ func (c *Consumer) ReadEvent() (*Storage, error) {
 	}
 	fmt.Println(string(data))
 	// преобразуем данные из JSON-представления в структуру
-	event := Storage{}
+	event := Storage{alURLStorage: make(map[string]string)}
 	err = json.Unmarshal(data, &event)
+	fmt.Println("AFTER unmarshall: ", event)
 	if err != nil {
 		return nil, err
 	}
