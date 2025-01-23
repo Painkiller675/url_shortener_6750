@@ -25,14 +25,14 @@ func main() {
 	//render logger for gzip
 	//gzipMW.NewGzipLogger(l.Logger)
 
+	//init the contex
+	ctx := context.Background()
+
 	// init storage
-	s, err := repository.ChooseStorage(l.Logger)
+	s, err := repository.ChooseStorage(ctx, l.Logger)
 	if err != nil {
 		panic(err) // TODO: [MENTOR] is it good to panic here or I could handle it miles better?
 	}
-
-	// init context
-	ctx := context.Background()
 
 	// init controller
 	c := controller.New(l.Logger, s)
@@ -46,11 +46,11 @@ func main() {
 
 	// routing
 	r.Route("/", func(r chi.Router) {
-		r.Post("/", c.CreateShortURLHandler(ctx))
-		r.Get("/ping", c.PingDB(ctx))
-		r.Get("/{id}", c.GetLongURLHandler(ctx))
-		r.Post("/api/shorten", c.CreateShortURLJSONHandler(ctx))
-		r.Post("/api/shorten/batch", c.CreateShortURLJSONBatchHandler(ctx))
+		r.Post("/", c.CreateShortURLHandler())
+		r.Get("/ping", c.PingDB())
+		r.Get("/{id}", c.GetLongURLHandler())
+		r.Post("/api/shorten", c.CreateShortURLJSONHandler())
+		r.Post("/api/shorten/batch", c.CreateShortURLJSONBatchHandler())
 
 	})
 	//start server

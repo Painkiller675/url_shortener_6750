@@ -21,18 +21,41 @@ type Storage struct {
 	// TODO mb use logger here
 }
 
-func NewStorage(conStr string) (*Storage, error) { // TODO: mb delete error? leave only panic
+func NewStorage(ctx context.Context, conStr string) (*Storage, error) { // TODO: mb delete error? leave only panic
+
 	//connect to the database
 	conn, err := sql.Open("pgx", conStr)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	// запускаем транзакцию
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		fmt.Println("[ERROR] cannot begin transaction")
+		return nil, err
+	}
+	// в случае неуспешного коммита все изменения транзакции будут отменены
+	defer tx.Rollback()
+
+	// создаём таблицу
+	tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS url(
+		id SERIAL PRIMARY KEY,
+		alias TEXT NOT NULL UNIQUE,
+		url TEXT NOT NULL UNIQUE);`)
+	tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);`)
+
+	// коммитим транзакцию
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
 	//defer conn.Close()
 	return &Storage{conn: conn}, nil
 }
 
 // TODO: [4 MENTOR] mb I should somehow move Bootstrap to NewStorage?
-func (s *Storage) Bootstrap(ctx context.Context) error {
+/*func (s *Storage) Bootstrap(ctx context.Context) error {
 	// запускаем транзакцию
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
@@ -52,7 +75,7 @@ func (s *Storage) Bootstrap(ctx context.Context) error {
 
 	// коммитим транзакцию
 	return tx.Commit()
-}
+}*/
 
 func (s *Storage) StoreAlURL(ctx context.Context, alias string, url string) (int64, error) {
 	const op = "pg.StoreAlURL"

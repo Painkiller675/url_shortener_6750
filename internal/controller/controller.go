@@ -2,7 +2,6 @@ package controller
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
@@ -35,7 +34,7 @@ func New(logger *zap.Logger, storage repository.URLStorage) *Controller {
 	return &Controller{logger: logger, storage: storage}
 }
 
-func (c *Controller) CreateShortURLHandler(ctx context.Context) http.HandlerFunc {
+func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.CreateSHortURLHandler"
 		body, err := io.ReadAll(req.Body)
@@ -48,7 +47,7 @@ func (c *Controller) CreateShortURLHandler(ctx context.Context) http.HandlerFunc
 
 		// write an alias
 		randAl := service.GetRandString(string(body))
-		_, err = c.storage.StoreAlURL(ctx, randAl, string(body)) // TODO [MENTOR]: mb del _ or change driver to support id?
+		_, err = c.storage.StoreAlURL(req.Context(), randAl, string(body)) // TODO [MENTOR]: mb del _ or change driver to support id?
 		httpStatus := http.StatusCreated
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // the try to short already existed url pg database
@@ -81,11 +80,11 @@ func (c *Controller) CreateShortURLHandler(ctx context.Context) http.HandlerFunc
 	}
 }
 
-func (c *Controller) GetLongURLHandler(ctx context.Context) http.HandlerFunc {
+func (c *Controller) GetLongURLHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		idAl := req.PathValue("id") // the cap
 		// response molding ...
-		orURL, err := c.storage.GetOrURLByAl(ctx, idAl)
+		orURL, err := c.storage.GetOrURLByAl(req.Context(), idAl)
 		if err != nil { // TODO: mb I should use status 500 here?
 			c.logger.Info("Failed to get orURL", zap.String("id", idAl), zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -96,7 +95,7 @@ func (c *Controller) GetLongURLHandler(ctx context.Context) http.HandlerFunc {
 	}
 }
 
-func (c *Controller) CreateShortURLJSONHandler(ctx context.Context) http.HandlerFunc {
+func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.CreateShortURLJSONHandler"
 		//check content-type
@@ -123,7 +122,7 @@ func (c *Controller) CreateShortURLJSONHandler(ctx context.Context) http.Handler
 		// calculate the alias
 		randAl := service.GetRandString(orStruct.OrURL)
 		// write into a storage to allow getting the data
-		_, err := c.storage.StoreAlURL(ctx, randAl, orStruct.OrURL)
+		_, err := c.storage.StoreAlURL(req.Context(), randAl, orStruct.OrURL)
 		httpStatus := http.StatusCreated
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // if alias for url already exists in the pg database
@@ -166,10 +165,9 @@ func (c *Controller) CreateShortURLJSONHandler(ctx context.Context) http.Handler
 	}
 }
 
-func (c *Controller) PingDB(ctx context.Context) http.HandlerFunc {
+func (c *Controller) PingDB() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		//ctx := context.Background()
-		err := c.storage.Ping(ctx)
+		err := c.storage.Ping(req.Context())
 		// if no connection
 		if err != nil {
 			c.logger.Warn("[WARNING]", zap.String("PingDB", "Can't ping pg database!"), zap.Error(err))
@@ -182,7 +180,7 @@ func (c *Controller) PingDB(ctx context.Context) http.HandlerFunc {
 	}
 }
 
-func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.HandlerFunc {
+func (c *Controller) CreateShortURLJSONBatchHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		//check content-type (application/json)
 		if ok := strings.Contains(req.Header.Get("Content-Type"), "application/json"); !ok {
@@ -240,14 +238,14 @@ func (c *Controller) CreateShortURLJSONBatchHandler(ctx context.Context) http.Ha
 		}
 
 		// save data into the database and create respBatch for response
-		respBatch, err := c.storage.SaveBatchURL(ctx, idURLAl)
+		respBatch, err := c.storage.SaveBatchURL(req.Context(), idURLAl)
 		if err != nil {
 			c.logger.Error("[ERROR]", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 		// create the array of structs to add base url to response
-		response := make([]models.JSONBatStructToSerResp, 0) //TODO [MENTOR] is it a good allocation or I should use len?
+		response := make([]models.JSONBatStructToSerResp, 0, len(*respBatch)) //
 		// molding the response
 
 		for _, idSh := range *respBatch {

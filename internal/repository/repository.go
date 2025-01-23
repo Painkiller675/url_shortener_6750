@@ -20,20 +20,20 @@ type URLStorage interface {
 	GetAlByURL(ctx context.Context, url string) (string, error)
 }
 
-func ChooseStorage(logger *zap.Logger) (URLStorage, error) {
+func ChooseStorage(ctx context.Context, logger *zap.Logger) (URLStorage, error) {
 	// if the database storage
 	if config.StartOptions.DBConStr != "" {
 
-		pgStor, err := pg.NewStorage(config.StartOptions.DBConStr)
+		pgStor, err := pg.NewStorage(ctx, config.StartOptions.DBConStr)
 		if err != nil {
 			logger.Error("[ERROR] Can't open pg database ", zap.Error(err))
 			return nil, err // TODO: [4 MENTOR] unuseful cause I use only panic in constructor in fact, is it ok?
 		}
-		err = pgStor.Bootstrap(context.Background()) //TODO: is it ok to use new contex here?
+		/*err = pgStor.Bootstrap(context.Background()) //TODO [MENTOR]: is it ok to use new contex here?
 		if err != nil {
 			logger.Error("[ERROR] Can't bootstrap pg database ", zap.Error(err))
 			return nil, err
-		}
+		}*/
 		return pgStor, nil
 	}
 	// if the file storage
