@@ -25,7 +25,7 @@ func main() {
 	//render logger for gzip
 	//gzipMW.NewGzipLogger(l.Logger)
 
-	//init the contex
+	//init the context
 	ctx := context.Background()
 
 	// init storage

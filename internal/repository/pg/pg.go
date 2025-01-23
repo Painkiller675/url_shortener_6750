@@ -54,29 +54,6 @@ func NewStorage(ctx context.Context, conStr string) (*Storage, error) { // TODO:
 	return &Storage{conn: conn}, nil
 }
 
-// TODO: [4 MENTOR] mb I should somehow move Bootstrap to NewStorage?
-/*func (s *Storage) Bootstrap(ctx context.Context) error {
-	// запускаем транзакцию
-	tx, err := s.conn.BeginTx(ctx, nil)
-	if err != nil {
-		fmt.Println("[ERROR] cannot begin transaction")
-		return err
-	}
-
-	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer tx.Rollback()
-
-	// создаём таблицу
-	tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS url(
-		id SERIAL PRIMARY KEY,
-		alias TEXT NOT NULL UNIQUE,
-		url TEXT NOT NULL UNIQUE);`)
-	tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);`)
-
-	// коммитим транзакцию
-	return tx.Commit()
-}*/
-
 func (s *Storage) StoreAlURL(ctx context.Context, alias string, url string) (int64, error) {
 	const op = "pg.StoreAlURL"
 	stmt, err := s.conn.Prepare("INSERT INTO url (alias, url) VALUES ($1,$2);")
