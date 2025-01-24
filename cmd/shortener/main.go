@@ -31,7 +31,7 @@ func main() {
 	// init storage
 	s, err := repository.ChooseStorage(ctx, l.Logger)
 	if err != nil {
-		panic(err) // TODO: [MENTOR] is it good to panic here or I could handle it miles better?
+		panic(err)
 	}
 
 	// init controller

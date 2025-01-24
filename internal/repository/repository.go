@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository/file"
@@ -21,13 +22,14 @@ type URLStorage interface {
 }
 
 func ChooseStorage(ctx context.Context, logger *zap.Logger) (URLStorage, error) {
+	const op = "ChooseStorage"
 	// if the database storage
 	if config.StartOptions.DBConStr != "" {
 
 		pgStor, err := pg.NewStorage(ctx, config.StartOptions.DBConStr)
 		if err != nil {
-			logger.Error("[ERROR] Can't open pg database ", zap.Error(err))
-			return nil, err // TODO: [4 MENTOR] unuseful cause I use only panic in constructor in fact, is it ok?
+			//logger.Error("[ERROR] Can't open pg database ", zap.Error(err))
+			return nil, fmt.Errorf("%s: %w", op, err) //
 		}
 
 		return pgStor, nil
