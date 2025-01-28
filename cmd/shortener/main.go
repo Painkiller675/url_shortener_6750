@@ -31,7 +31,7 @@ func main() {
 	// init storage
 	s, err := repository.ChooseStorage(ctx, l.Logger)
 	if err != nil {
-		panic(err)
+		panic(err) // TODO: [MENTOR] is it good to panic here or I could handle it miles better?
 	}
 
 	// init controller
@@ -51,6 +51,7 @@ func main() {
 		r.Get("/{id}", c.GetLongURLHandler())
 		r.Post("/api/shorten", c.CreateShortURLJSONHandler())
 		r.Post("/api/shorten/batch", c.CreateShortURLJSONBatchHandler())
+		r.Get("/api/user/urls", c.GetUserURLSHandler())
 
 	})
 	//start server

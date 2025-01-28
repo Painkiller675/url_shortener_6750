@@ -1,5 +1,7 @@
 package models
 
+import "github.com/golang-jwt/jwt/v4"
+
 // structs for the batch
 
 type JSONBatStructToDesReq struct {
@@ -16,6 +18,18 @@ type JSONBatStructIDOrSh struct {
 	CorrelationID string `json:"-"`
 	OriginalURL   string `json:"-"`
 	ShortURL      string `json:"-"`
+}
+
+type UserURLS struct {
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
+
+// Claims — структура утверждений, которая включает стандартные утверждения и
+// одно пользовательское UserID
+type Claims struct {
+	jwt.RegisteredClaims
+	UserID string
 }
 
 /*type ExistsURLError struct {

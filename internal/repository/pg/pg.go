@@ -7,17 +7,21 @@ import (
 	"fmt"
 	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
+	"github.com/Painkiller675/url_shortener_6750/internal/service"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"go.uber.org/zap"
+
 	//_ github.com/lib/pq
 
 	"time"
 )
 
 type Storage struct {
-	conn *sql.DB
+	conn   *sql.DB
+	logger *zap.Logger
 	// TODO mb use logger here
 }
 
@@ -36,12 +40,19 @@ func NewStorage(ctx context.Context, conStr string) (*Storage, error) { // TODO:
 	}
 	// в случае неуспешного коммита все изменения транзакции будут отменены
 	defer tx.Rollback()
+	/*defer func() {
+		if err := tx.Rollback(); err != nil {
+			fmt.Println("[ERROR] cannot rollback transaction") // TODO [MENTOR]: Why it panics ???
+		}
+	}()*/
 
 	// создаём таблицу
 	tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS url(
-		id SERIAL PRIMARY KEY,
+		id SERIAL NOT NULL PRIMARY KEY,
 		alias TEXT NOT NULL UNIQUE,
-		url TEXT NOT NULL UNIQUE);`)
+		url TEXT NOT NULL UNIQUE,
+    	userId TEXT NOT NULL UNIQUE,
+		created TIMESTAMP with time zone NOT NULL DEFAULT now());`)
 	tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);`)
 
 	// коммитим транзакцию
@@ -54,39 +65,30 @@ func NewStorage(ctx context.Context, conStr string) (*Storage, error) { // TODO:
 	return &Storage{conn: conn}, nil
 }
 
-func (s *Storage) StoreAlURL(ctx context.Context, alias string, url string) (int64, error) {
+func (s *Storage) StoreAlURL(ctx context.Context, alias string, url string, userID string) (int64, error) {
 	const op = "pg.StoreAlURL"
-	stmt, err := s.conn.Prepare("INSERT INTO url (alias, url) VALUES ($1,$2);")
+	stmt, err := s.conn.Prepare("INSERT INTO url (alias, url, userId) VALUES ($1,$2, $3);")
 	if err != nil {
 		err = fmt.Errorf("%s: %w", op, err)
 		return 0, err
 	}
 	fmt.Println("1. alias = ", alias)
-	_, err = stmt.ExecContext(ctx, alias, url) // _ = res (to ge LastId)
+	_, err = stmt.ExecContext(ctx, alias, url, userID) // _ = res (to ge LastId)
 	if err != nil {
 		fmt.Printf("%s: %s\n", op, err)
 		// TODO: what does it actually mean???
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
-			fmt.Println("if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code)")
 			if pgErr.Code == pgerrcode.UniqueViolation { // if we have the try to short existed url
-				fmt.Println("if pgErr.Code == pgerrcode.UniqueViolation ")
-				fmt.Println("2. alias = ", alias)
-				//existedAlias, err := s.GetAlByURL(ctx, url)
-				//if err != nil {
-				//	return 0, err
-				//}
 				err = merrors.ErrURLOrAliasExists // TODO [MENTOR]: is it OK way ?
 				return 0, err
-				//return 0, &models.ExistsURLError{ // TODO [MENTOR] Delete the model
-				//	ExistedAlias: existedAlias,
-				//	Err:          merrors.ErrURLOrAliasExists,
+
 			}
 		}
-		//err = merrors.ErrURLOrAliasExists
+
 	}
 	return 0, nil
-	//return 0, fmt.Errorf("%s: %w", op, err)
+
 }
 
 // TODO [Mentor]: LastInsertId is not supported by this driver, should I use 0 or change the driver?
@@ -115,8 +117,41 @@ func (s *Storage) GetOrURLByAl(ctx context.Context, alias string) (string, error
 
 }
 
+func (s *Storage) GetDataByUserID(ctx context.Context, userID string) (*[]models.UserURLS, error) {
+	const op = "pg.GetDataByUserID"
+	rows, err := s.conn.QueryContext(ctx, "SELECT alias, url FROM url WHERE userId=$1;", userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) { // no rows for  a specific user
+			return nil, merrors.ErrURLNotFound
+		} // TODO: CHECK THAT!!!!!!!!!!!!!!!!!1
+		// other possible errors
+		return nil, fmt.Errorf("failed to get user URLs [%s]: %w", op, err)
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			s.logger.Error("failed to close rows", zap.String("place", op), zap.Error(err))
+		}
+	}()
+	defer func() {
+		if err := rows.Err(); err != nil {
+			s.logger.Error("rows.Err() issue", zap.String("place", op), zap.Error(err))
+		}
+	}()
+	var userData []models.UserURLS
+
+	for rows.Next() {
+		var usrData models.UserURLS
+		if err := rows.Scan(&usrData.ShortURL, &usrData.OriginalURL); err != nil {
+			return nil, fmt.Errorf("can's scan the row [%s]: %w", op, err)
+		}
+		userData = append(userData, usrData)
+	}
+
+	return &userData, nil
+}
+
 func (s *Storage) GetAlByURL(ctx context.Context, url string) (string, error) {
-	const op = "postgreSQL.GetOrURLByAl"
+	const op = "postgreSQL.GetOrURLByURL"
 	// TODO [MENTOR] mb I should put all the queries into the constants?!
 	row := s.conn.QueryRowContext(ctx, "SELECT alias FROM url WHERE url=$1;", url)
 	var alias string
@@ -157,13 +192,17 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 		return nil, err
 	}
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer tx.Rollback()
+	defer func() { // TODO [MENTOR] : mb somehow use zap here?
+		if err := tx.Rollback(); err != nil {
+			fmt.Println("[ERROR] rollback error!")
+		}
+	}()
 	// create value to store data for response
 	toResp := make([]models.JSONBatStructToSerResp, 0) // TODO [MENTOR]: is it ok allocation? why len(*corURLSh) is false instead of 0?
 	// fill transaction with insert queries:
 
 	for _, idURLSh := range *corURLSh {
-		_, err := s.StoreAlURL(ctx, idURLSh.ShortURL, idURLSh.OriginalURL)
+		_, err := s.StoreAlURL(ctx, idURLSh.ShortURL, idURLSh.OriginalURL, service.GetRandString(time.Now().String())) //TODO: correct that?
 		// TODO: if exists => get it from DB for response
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) {
