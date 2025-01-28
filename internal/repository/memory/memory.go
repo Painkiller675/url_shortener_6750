@@ -40,7 +40,7 @@ func NewStorage(logger *zap.Logger) *Storage {
 	}
 }
 
-func (s *Storage) StoreAlURL(_ context.Context, alias string, url string) (int64, error) {
+func (s *Storage) StoreAlURL(_ context.Context, alias string, url string, _ string) (int64, error) {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 	s.AlURLStorage[alias] = url //TODO: mb I should somehow handle that?
@@ -58,13 +58,18 @@ func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) 
 	return "", er //TODO: handle that more properly
 }
 
+// GetDataByUserID - a blind plug
+func (s *Storage) GetDataByUserID(ctx context.Context, _ string) (*[]models.UserURLS, error) {
+	return nil, nil
+}
+
 func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIDOrSh) (*[]models.JSONBatStructToSerResp, error) {
 	const op = "memory.SaveBatchURL"
 	// create the arrays of structs for response
 	toResp := make([]models.JSONBatStructToSerResp, 0) // TODO [MENTOR]: is it ok allocation? why len(*corURLSh) is false? (instead of 0)
 	// saving ..
 	for _, idURLSh := range *corURLSh {
-		_, err := s.StoreAlURL(ctx, idURLSh.ShortURL, idURLSh.OriginalURL) // TODO: how to use _ here?
+		_, err := s.StoreAlURL(ctx, idURLSh.ShortURL, idURLSh.OriginalURL, "") // TODO: how to use _ here?
 		if err != nil {
 			s.logger.Info(op, zap.Error(err))
 			return nil, err

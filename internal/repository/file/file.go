@@ -34,7 +34,7 @@ func NewStorage(filename string, logger *zap.Logger) *Storage {
 	}
 }
 
-func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string) (int64, error) {
+func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string, _ string) (int64, error) {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 	s.AlURLStorage[alias] = orURL
@@ -43,6 +43,11 @@ func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string) (int
 		return 1, err                                                                                                                // 1 - a blind plug
 	}
 	return 1, nil // a blind plug
+}
+
+// GetDataByUserID - a blind plug
+func (s *Storage) GetDataByUserID(ctx context.Context, userID string) (*[]models.UserURLS, error) {
+	return nil, nil
 }
 
 // a blind plug to be able to implement the interface
@@ -59,7 +64,7 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 	toResp := make([]models.JSONBatStructToSerResp, 0) // TODO [MENTOR]: is it ok allocation? why len(*corURLSh) is false?
 	// saving ..
 	for _, idURLSh := range *corURLSh {
-		_, err := s.StoreAlURL(ctx, idURLSh.ShortURL, idURLSh.OriginalURL) // TODO: how to use _ here?
+		_, err := s.StoreAlURL(ctx, idURLSh.ShortURL, idURLSh.OriginalURL, "") // TODO: how to use _ here?
 		if err != nil {
 			s.Logger.Info(op, zap.String("filename", config.StartOptions.Filename), zap.Error(err))
 			return nil, err
