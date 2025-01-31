@@ -284,7 +284,7 @@ func (s *Storage) CheckIfUserExists(ctx context.Context, userID string) error {
 		if errors.Is(err, pgx.ErrNoRows) { // TODO [4 MENTOR]: why it doesn't work?!
 			return fmt.Errorf("%s: %w", op, merrors.ErrUserNotFound)
 		}
-		// other possible errors
+		// other possible errors_
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
