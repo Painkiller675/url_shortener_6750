@@ -251,17 +251,17 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 
 // DeleteURLsByUserID deletes some records from the database by UserID (set flag is_deleted in true state)
 // the func doesn't use transaction just to implement  a multi stream concept
-func (c *Storage) DeleteURLsByUserID(ctx context.Context, userID string, aliasesToDel []string) (err error) {
+func (s *Storage) DeleteURLsByUserID(ctx context.Context, userID string, aliasesToDel []string) (err error) {
 	const op = "repository.pg.DeleteURLsByUserID"
 	const deleteURLs = "UPDATE url SET isDeleted = true WHERE userId = $1 AND alias = ANY($2)"
 	var stmt *sql.Stmt
-	stmt, err = c.conn.Prepare(deleteURLs) // TODO[MENTOR]: is it ok to prepare it here?
+	stmt, err = s.conn.Prepare(deleteURLs) // TODO[MENTOR]: is it ok to prepare it here?
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	defer func() { // TODO [ MENTOR] how should I up this error??? should I RETURN DeleteURLsByUserID???!
 		if err = stmt.Close(); err != nil {
-			c.logger.Error("close prepare sql error", zap.String("place", op), zap.Error(err))
+			s.logger.Error("close prepare sql error", zap.String("place", op), zap.Error(err))
 		}
 	}()
 
@@ -273,10 +273,10 @@ func (c *Storage) DeleteURLsByUserID(ctx context.Context, userID string, aliases
 	return nil
 }
 
-func (c *Storage) CheckIfUserExists(ctx context.Context, userID string) error {
+func (s *Storage) CheckIfUserExists(ctx context.Context, userID string) error {
 	const op = "repository.pg.CheckIfUserExists"
 	// TODO [MENTOR] mb I should put all the queries into the constants?!
-	row := c.conn.QueryRowContext(ctx, "SELECT * FROM url WHERE userId=$1;", userID)
+	row := s.conn.QueryRowContext(ctx, "SELECT * FROM url WHERE userId=$1;", userID)
 	var orURL string
 	err := row.Scan(&orURL)
 	if err != nil {

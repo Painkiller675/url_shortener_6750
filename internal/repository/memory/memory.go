@@ -90,10 +90,10 @@ func (s *Storage) Ping(ctx context.Context) error {
 func (s *Storage) GetAlByURL(ctx context.Context, url string) (string, error) { return "", nil }
 
 // DeleteURLsByUserID is a blind plug here
-func (c *Storage) DeleteURLsByUserID(ctx context.Context, userID string, aliasToDel []string) error {
+func (s *Storage) DeleteURLsByUserID(ctx context.Context, userID string, aliasToDel []string) error {
 	return nil
 }
 
-func (c *Storage) CheckIfUserExists(ctx context.Context, userID string) error {
+func (s *Storage) CheckIfUserExists(ctx context.Context, userID string) error {
 	return nil
 }
