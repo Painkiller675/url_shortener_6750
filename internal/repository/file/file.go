@@ -211,3 +211,13 @@ func (c *Consumer) ReadEvent() (*Storage, error) {
 func (c *Consumer) Close() error {
 	return c.file.Close()
 }
+
+// DeleteURLsByUserID is a blind plug here
+
+func (c *Storage) DeleteURLsByUserID(ctx context.Context, userID string, aliasToDel []string) error {
+	return nil
+}
+
+func (c *Storage) CheckIfUserExists(ctx context.Context, userID string) error {
+	return nil
+}

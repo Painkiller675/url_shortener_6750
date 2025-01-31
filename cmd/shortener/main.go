@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"log"
 	"net/http"
+	"sync"
 )
 
 func main() {
@@ -33,9 +34,9 @@ func main() {
 	if err != nil {
 		panic(err) // TODO: [MENTOR] is it good to panic here or I could handle it miles better?
 	}
-
+	var wg sync.WaitGroup // TODO bring it to controlller
 	// init controller
-	c := controller.New(l.Logger, s)
+	c := controller.New(l.Logger, s, wg) //
 
 	// init router
 	r := chi.NewRouter()
@@ -52,6 +53,7 @@ func main() {
 		r.Post("/api/shorten", c.CreateShortURLJSONHandler())
 		r.Post("/api/shorten/batch", c.CreateShortURLJSONBatchHandler())
 		r.Get("/api/user/urls", c.GetUserURLSHandler())
+		r.Get("/api/user/urls", c.DeleteURLSHandler())
 
 	})
 	//start server
@@ -59,5 +61,5 @@ func main() {
 	if err := http.ListenAndServe(config.StartOptions.HTTPServer.Address, r); err != nil {
 		panic(err)
 	}
-
+	wg.Wait() // gracefull shutdown
 }

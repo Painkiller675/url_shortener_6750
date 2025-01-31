@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -31,10 +32,11 @@ type JSONStructOr struct {
 type Controller struct {
 	logger  *zap.Logger
 	storage repository.URLStorage
+	wg      sync.WaitGroup
 }
 
-func New(logger *zap.Logger, storage repository.URLStorage) *Controller {
-	return &Controller{logger: logger, storage: storage}
+func New(logger *zap.Logger, storage repository.URLStorage, wg sync.WaitGroup) *Controller {
+	return &Controller{logger: logger, storage: storage, wg: wg}
 }
 
 // genJWTTokenString create JWT token and return it in string type
@@ -112,15 +114,84 @@ func (c *Controller) setAuthToken(w http.ResponseWriter, tokenStr string) {
 
 }
 
-func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
+func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
+		const op = "controller.DeleteURLSHandler"
+		// check the body
+		body, err := io.ReadAll(req.Body)
+		if err != nil || len(body) == 0 {
+			c.logger.Error("Failed to read request body", zap.Error(err))
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		var userID string
+
+		// retrieve token if any
+		userID = c.retrieveUserIDFromTokenString(req)
+		if userID == "-1" { // can't retrieve token => error
+			c.logger.Info("Request token issues", zap.String("token", string(body)))
+			res.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		// check if user exists TODO: del that or not
+		err = c.storage.CheckIfUserExists(req.Context(), userID)
+		if err != nil {
+			if errors.Is(err, merrors.ErrUserNotFound) {
+				c.logger.Info("User not found", zap.String("user_id", userID))
+				res.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			// handle other possible errors (unexpected ones)
+			c.logger.Error("Failed to check if user exists", zap.Error(err))
+			res.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		// Replace the body with a new reader after reading from the original to reuse it
+		req.Body = io.NopCloser(bytes.NewBuffer(body)) // TODO unmarshal body
+		var buf bytes.Buffer
+		// feed data from the body into the buffer
+		if _, err := buf.ReadFrom(req.Body); err != nil {
+			c.logger.Error("[ERROR]", zap.Error(err))
+			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) // TODO [MENTOR]: BadRequest or InternalServerError?
+			return
+		}
+		defer req.Body.Close() // TODO [MENTOR] I didn't assign it should I close it??
+		// deserialize (unmarshal) the slice of aliases to delete
+
+		var aliasesToDel []string // ids  - the slice of aliases to del
+		if err := json.Unmarshal(buf.Bytes(), &aliasesToDel); err != nil {
+			c.logger.Error("[ERROR]", zap.Error(err))
+			http.Error(res, err.Error(), http.StatusBadRequest) // TODO [MENTOR]: BadRequest or InternalServerError?
+			return
+		}
+
+		// В случае успешного приёма запроса хендлер должен возвращать HTTP-статус 202 Accepted.
+		//Фактический результат удаления может происходить позже — оповещать пользователя
+		//об успешности или неуспешности не нужно. => notify the user
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusAccepted) // TODO [MENTOR]: when it would be send ?? I have a goroutine here!
+		// TODO gone status!!!!
+		c.wg.Add(1) // todo define wait group in main and bring it to controller
+		//
+		go func() {
+			defer c.wg.Done()
+			if err := c.storage.DeleteURLsByUserID(req.Context(), userID, aliasesToDel); err != nil {
+				c.logger.Error("[ERROR]", zap.Error(err)) // TODO [MENTOR]: how to go it up? is it necessary?
+			}
+		}()
+	}
+}
+
+func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
+	fn := func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.CreateSHortURLHandler"
 
-		body, err := io.ReadAll(req.Body)
 		//check the body
+		body, err := io.ReadAll(req.Body)
 		if err != nil || len(body) == 0 {
-			c.logger.Info("Body is empty!", zap.Error(err))
-			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			c.logger.Info("Failed to read request body", zap.Error(err))
+			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -135,9 +206,10 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 				res.WriteHeader(http.StatusInternalServerError)
 				return
 			}
+			// add generate token string to the Cookies
+			c.setAuthToken(res, tokenStr)
 		}
-		// add token string to the Cookies
-		c.setAuthToken(res, tokenStr)
+
 		// save the data
 		randAl := service.GetRandString(string(body))
 		_, err = c.storage.StoreAlURL(req.Context(), randAl, string(body), userID) // TODO [MENTOR]: mb del _ or change driver to support id?
@@ -170,8 +242,8 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 			c.logger.Info("Failed to write response", zap.Error(err))
 			return
 		}
-
 	}
+	return http.HandlerFunc(fn)
 }
 
 func (c *Controller) GetLongURLHandler() http.HandlerFunc {
@@ -180,12 +252,19 @@ func (c *Controller) GetLongURLHandler() http.HandlerFunc {
 		// response molding ...
 		orURL, err := c.storage.GetOrURLByAl(req.Context(), idAl)
 		if err != nil { // TODO: mb I should use status 500 here?
+			if errors.Is(err, merrors.ErrURLIsDel) { // if URL was deleted
+				c.logger.Info("[INFO]", zap.Error(err))
+				res.WriteHeader(http.StatusGone)
+				return
+			}
+			// OTHER ERRORS
 			c.logger.Info("Failed to get orURL", zap.String("id", idAl), zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 		res.Header().Set("Location", orURL)
 		res.WriteHeader(http.StatusTemporaryRedirect) // 307
+
 	}
 }
 
@@ -421,7 +500,6 @@ func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 				return
 			}
 			(*(respAlURLStruct))[n].ShortURL = fullShortURL
-
 		}
 
 		// marshal data for response
@@ -440,7 +518,6 @@ func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 		if err != nil {
 			c.logger.Error("[ERROR]", zap.Error(err))
 			return
-
 		}
 	}
 }

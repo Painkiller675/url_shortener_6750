@@ -19,6 +19,8 @@ type URLStorage interface {
 	SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIDOrSh) (*[]models.JSONBatStructToSerResp, error)
 	GetAlByURL(ctx context.Context, url string) (string, error)
 	GetDataByUserID(ctx context.Context, userID string) (*[]models.UserURLS, error)
+	DeleteURLsByUserID(ctx context.Context, userID string, aliasToDel []string) error
+	CheckIfUserExists(ctx context.Context, userID string) error
 }
 
 func ChooseStorage(ctx context.Context, logger *zap.Logger) (URLStorage, error) {

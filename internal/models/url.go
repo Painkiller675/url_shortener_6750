@@ -25,6 +25,11 @@ type UserURLS struct {
 	OriginalURL string `json:"original_url"`
 }
 
+type URLIsDel struct {
+	URL   string `json:"-"`
+	IsDel bool   `json:"-"`
+}
+
 // Claims — структура утверждений, которая включает стандартные утверждения и
 // одно пользовательское UserID
 type Claims struct {

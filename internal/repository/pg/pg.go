@@ -12,8 +12,8 @@ import (
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/lib/pq"
 	"go.uber.org/zap"
-
 	//_ github.com/lib/pq
 
 	"time"
@@ -39,7 +39,7 @@ func NewStorage(ctx context.Context, conStr string) (*Storage, error) { // TODO:
 		return nil, err
 	}
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer tx.Rollback()
+	defer tx.Rollback() // if commit => error rollback
 	/*defer func() {
 		if err := tx.Rollback(); err != nil {
 			fmt.Println("[ERROR] cannot rollback transaction") // TODO [MENTOR]: Why it panics ???
@@ -52,6 +52,7 @@ func NewStorage(ctx context.Context, conStr string) (*Storage, error) { // TODO:
 		alias TEXT NOT NULL UNIQUE,
 		url TEXT NOT NULL UNIQUE,
     	userId TEXT NOT NULL UNIQUE,
+    	isDeleted BOOL NOT NULL DEFAULT FALSE,
 		created TIMESTAMP with time zone NOT NULL DEFAULT now());`)
 	tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);`)
 
@@ -101,9 +102,10 @@ if err != nil {
 func (s *Storage) GetOrURLByAl(ctx context.Context, alias string) (string, error) {
 	const op = "postgreSQL.GetOrURLByAl"
 	// TODO [MENTOR] mb I should put all the queries into the constants?!
-	row := s.conn.QueryRowContext(ctx, "SELECT url FROM url WHERE alias=$1;", alias)
-	var orURL string
-	err := row.Scan(&orURL)
+	row := s.conn.QueryRowContext(ctx, "SELECT url,isDeleted FROM url WHERE alias=$1;", alias)
+	var URLIsDel = models.URLIsDel{}
+
+	err := row.Scan(&URLIsDel.URL, &URLIsDel.IsDel)
 	if err != nil {
 		// if URL doesn't exist
 		if errors.Is(err, pgx.ErrNoRows) { // TODO [4 MENTOR]: why it doesn't work?!
@@ -112,13 +114,17 @@ func (s *Storage) GetOrURLByAl(ctx context.Context, alias string) (string, error
 		// other possible errors
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
-
-	return orURL, nil
+	// if selected url is deleted
+	if URLIsDel.IsDel != true {
+		return "", fmt.Errorf("%s (was del) %s: %w", URLIsDel.URL, op, merrors.ErrURLIsDel)
+	}
+	// if URL wasn't deleted
+	return URLIsDel.URL, nil
 
 }
 
 func (s *Storage) GetDataByUserID(ctx context.Context, userID string) (*[]models.UserURLS, error) {
-	const op = "pg.GetDataByUserID"
+	const op = "pg.GetDataByUserID" // TODO: del slice pointers from the signature ?
 	rows, err := s.conn.QueryContext(ctx, "SELECT alias, url FROM url WHERE userId=$1;", userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) { // no rows for  a specific user
@@ -240,4 +246,47 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 	}
 
 	return &toResp, nil
+}
+
+// DeleteURLsByUserID deletes some records from the database by UserID (set flag is_deleted in true state)
+// the func doesn't use transaction just to implement  a multi stream concept
+func (c *Storage) DeleteURLsByUserID(ctx context.Context, userID string, aliasesToDel []string) (err error) {
+	const op = "repository.pg.DeleteURLsByUserID"
+	const deleteURLs = "UPDATE url SET isDeleted = true WHERE userId = $1 AND alias = ANY($2)"
+	var stmt *sql.Stmt
+	stmt, err = c.conn.Prepare(deleteURLs) // TODO[MENTOR]: is it ok to prepare it here?
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	defer func() { // TODO [ MENTOR] how should I up this error??? should I RETURN DeleteURLsByUserID???!
+		if err = stmt.Close(); err != nil {
+			c.logger.Error("close prepare sql error", zap.String("place", op), zap.Error(err))
+		}
+	}()
+
+	_, err = stmt.ExecContext(ctx, userID, pq.Array(aliasesToDel))
+	if err != nil {
+		return fmt.Errorf("can't execute DeleteShortURLs %s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (c *Storage) CheckIfUserExists(ctx context.Context, userID string) error {
+	const op = "repository.pg.CheckIfUserExists"
+	// TODO [MENTOR] mb I should put all the queries into the constants?!
+	row := c.conn.QueryRowContext(ctx, "SELECT * FROM url WHERE userId=$1;", userID)
+	var orURL string
+	err := row.Scan(&orURL)
+	if err != nil {
+		// if URL doesn't exist
+		if errors.Is(err, pgx.ErrNoRows) { // TODO [4 MENTOR]: why it doesn't work?!
+			return fmt.Errorf("%s: %w", op, merrors.ErrUserNotFound)
+		}
+		// other possible errors
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+
 }
