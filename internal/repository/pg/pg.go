@@ -115,7 +115,7 @@ func (s *Storage) GetOrURLByAl(ctx context.Context, alias string) (string, error
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 	// if selected url is deleted
-	if URLIsDel.IsDel != true {
+	if !URLIsDel.IsDel {
 		return "", fmt.Errorf("%s (was del) %s: %w", URLIsDel.URL, op, merrors.ErrURLIsDel)
 	}
 	// if URL wasn't deleted
@@ -198,11 +198,12 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 		return nil, err
 	}
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer func() { // TODO [MENTOR] : mb somehow use zap here?
+	defer tx.Rollback()
+	/*defer func() { // TODO [MENTOR] : mb somehow use zap here?
 		if err := tx.Rollback(); err != nil {
 			fmt.Println("[ERROR] rollback error!")
 		}
-	}()
+	}()*/
 	// create value to store data for response
 	toResp := make([]models.JSONBatStructToSerResp, 0) // TODO [MENTOR]: is it ok allocation? why len(*corURLSh) is false instead of 0?
 	// fill transaction with insert queries:

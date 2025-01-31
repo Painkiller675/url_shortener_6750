@@ -125,10 +125,8 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 			return
 		}
 
-		var userID string
-
 		// retrieve token if any
-		userID = c.retrieveUserIDFromTokenString(req)
+		userID := c.retrieveUserIDFromTokenString(req)
 		if userID == "-1" { // can't retrieve token => error
 			c.logger.Info("Request token issues", zap.String("token", string(body)))
 			res.WriteHeader(http.StatusUnauthorized)
