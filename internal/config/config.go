@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-//var password = "12345678"
+const TokenExp = time.Hour * 3
+const SecretKey = "supersecretkey"
 
 var version = "4.0" +
 	""
@@ -29,9 +30,9 @@ type HTTPServer struct {
 var StartOptions Options
 
 // var postgreConStr = fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
-//
+//.
 //	`localhost`, `postgres`, "12345678", `url_shortener`)
-//var postgreConStr = "user=postgres password=1234 dbname=url_shortener sslmode=disable"
+//var postgreConStr = "user=postgres password=12345678 dbname=url_shortener sslmode=disable"
 
 func SetConfig() {
 	//var StartOptions Options
