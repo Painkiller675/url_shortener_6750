@@ -117,7 +117,7 @@ func (s *Storage) GetOrURLByAl(ctx context.Context, alias string) (string, error
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 	// if selected url is deleted
-	if !URLIsDel.IsDel {
+	if URLIsDel.IsDel {
 		fmt.Println("[ACTIVE CHECK] if selected url is deleted", err)
 		return "", fmt.Errorf("%s (was del) %s: %w", URLIsDel.URL, op, merrors.ErrURLIsDel)
 	}

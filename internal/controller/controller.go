@@ -387,7 +387,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler() http.HandlerFunc {
 		}
 
 		// Replace the body with a new reader after reading from the original
-		req.Body = io.NopCloser(bytes.NewBuffer(body))
+		req.Body = io.NopCloser(bytes.NewBuffer(body)) // TODO: user body value instead
 
 		// create the array of structures to deserialize data
 		var desBatchStruct []models.JSONBatStructToDesReq
