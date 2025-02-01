@@ -184,7 +184,7 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.CreateSHortURLHandler"
-
+		c.logger.Debug("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL))
 		//check the body
 		body, err := io.ReadAll(req.Body)
 		if err != nil || len(body) == 0 {
@@ -215,6 +215,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // the try to short already existed url pg database
 				c.logger.Info("URL already exists!", zap.Error(err))
+				c.logger.Debug("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL))
 				httpStatus = http.StatusConflict
 			} else {
 				c.logger.Info("Failed to store URL", zap.Error(err))
