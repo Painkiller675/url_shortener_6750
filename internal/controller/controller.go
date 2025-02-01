@@ -35,8 +35,8 @@ type Controller struct {
 	wg      *sync.WaitGroup
 }
 
-func New(logger *zap.Logger, storage repository.URLStorage, wg sync.WaitGroup) *Controller {
-	return &Controller{logger: logger, storage: storage, wg: &wg}
+func New(logger *zap.Logger, storage repository.URLStorage, wg *sync.WaitGroup) *Controller {
+	return &Controller{logger: logger, storage: storage, wg: wg}
 }
 
 // genJWTTokenString create JWT token and return it in string type

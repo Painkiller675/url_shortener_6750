@@ -37,7 +37,7 @@ func main() {
 	// create a wait group
 	var wg sync.WaitGroup // TODO bring it to controller
 	// init controller
-	c := controller.New(l.Logger, s, wg) //
+	c := controller.New(l.Logger, s, &wg) //
 
 	// init router
 	r := chi.NewRouter()
