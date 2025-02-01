@@ -192,7 +192,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		c.logger.Debug("Request body", zap.String("body", string(body)))
+		c.logger.Info("Request body", zap.String("body", string(body)))
 		var tokenStr, userID string
 
 		// retrieve token if any
