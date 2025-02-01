@@ -111,11 +111,14 @@ func (s *Storage) GetOrURLByAl(ctx context.Context, alias string) (string, error
 		if errors.Is(err, pgx.ErrNoRows) { // TODO [4 MENTOR]: why it doesn't work?!
 			return "", fmt.Errorf("%s: %w", op, merrors.ErrURLNotFound)
 		}
+		fmt.Println("[ACTIVE CHECK] if URL doesn't exist", err)
 		// other possible errors
+		fmt.Println("[ACTIVE CHECK] other possible errors", err)
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 	// if selected url is deleted
 	if !URLIsDel.IsDel {
+		fmt.Println("[ACTIVE CHECK] if selected url is deleted")
 		return "", fmt.Errorf("%s (was del) %s: %w", URLIsDel.URL, op, merrors.ErrURLIsDel)
 	}
 	// if URL wasn't deleted
