@@ -23,7 +23,7 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	l.Logger.Debug("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL))
+	l.Logger.Info("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL))
 	//render logger for gzip
 	//gzipMW.NewGzipLogger(l.Logger)
 
