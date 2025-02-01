@@ -210,6 +210,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 
 		// save the data
 		randAl := service.GetRandString(string(body))
+		c.logger.Info("INSERT IN DATABASE", zap.String("ShortURL:", randAl), zap.String("BODY: ", string(body)))
 		_, err = c.storage.StoreAlURL(req.Context(), randAl, string(body), userID) // TODO [MENTOR]: mb del _ or change driver to support id?
 		httpStatus := http.StatusCreated
 		if err != nil {
@@ -310,6 +311,7 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 		// calculate the alias
 		randAl := service.GetRandString(orStruct.OrURL)
 		// save the data
+		c.logger.Info("INSERT IN DATABASE", zap.String("ShortURL:", randAl), zap.String("OrURL::", orStruct.OrURL))
 		_, err = c.storage.StoreAlURL(req.Context(), randAl, orStruct.OrURL, userID)
 		httpStatus := http.StatusCreated
 		if err != nil {
