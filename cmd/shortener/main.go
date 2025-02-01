@@ -34,7 +34,8 @@ func main() {
 	if err != nil {
 		panic(err) // TODO: [MENTOR] is it good to panic here or I could handle it miles better?
 	}
-	var wg sync.WaitGroup // TODO bring it to controlller
+	// create a wait group
+	var wg sync.WaitGroup // TODO bring it to controller
 	// init controller
 	c := controller.New(l.Logger, s, wg) //
 

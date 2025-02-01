@@ -32,11 +32,11 @@ type JSONStructOr struct {
 type Controller struct {
 	logger  *zap.Logger
 	storage repository.URLStorage
-	wg      sync.WaitGroup
+	wg      *sync.WaitGroup
 }
 
 func New(logger *zap.Logger, storage repository.URLStorage, wg sync.WaitGroup) *Controller {
-	return &Controller{logger: logger, storage: storage, wg: wg}
+	return &Controller{logger: logger, storage: storage, wg: &wg}
 }
 
 // genJWTTokenString create JWT token and return it in string type
