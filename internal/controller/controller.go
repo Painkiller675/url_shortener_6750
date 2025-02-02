@@ -126,6 +126,7 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 			res.WriteHeader(http.StatusUnauthorized) // changed from 400
 			return
 		}
+		c.logger.Info("DeleteURLSHandler", zap.String("Request body: ", string(body)), zap.String("url", req.URL.String()))
 
 		// retrieve token if any
 		userID := c.retrieveUserIDFromTokenString(req)
