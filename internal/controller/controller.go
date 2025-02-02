@@ -107,9 +107,11 @@ func (c *Controller) retrieveUserIDFromTokenString(r *http.Request) string { // 
 func (c *Controller) setAuthToken(w http.ResponseWriter, tokenStr string) {
 
 	http.SetCookie(w, &http.Cookie{
-		Name:    "token",
-		Value:   tokenStr,
-		Expires: time.Now().Add(config.TokenExp),
+		Name:     "token",
+		Value:    tokenStr,
+		Secure:   false,
+		HttpOnly: true,
+		Expires:  time.Now().Add(config.TokenExp),
 	})
 
 }
@@ -121,7 +123,7 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 		body, err := io.ReadAll(req.Body)
 		if err != nil || len(body) == 0 {
 			c.logger.Error("Failed to read request body", zap.Error(err))
-			res.WriteHeader(http.StatusBadRequest)
+			res.WriteHeader(http.StatusUnauthorized) // changed from 400
 			return
 		}
 
@@ -210,7 +212,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 
 		// save the data
 		randAl := service.GetRandString(string(body))
-		c.logger.Info("INSERT IN DATABASE", zap.String("ShortURL:", randAl), zap.String("BODY: ", string(body)))
+		c.logger.Info("INSERT IN DATABASE", zap.String("Alias:", randAl), zap.String("BODY: ", string(body)))
 		_, err = c.storage.StoreAlURL(req.Context(), randAl, string(body), userID) // TODO [MENTOR]: mb del _ or change driver to support id?
 		httpStatus := http.StatusCreated
 		if err != nil {
