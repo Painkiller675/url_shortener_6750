@@ -51,7 +51,7 @@ func NewStorage(ctx context.Context, conStr string) (*Storage, error) { // TODO:
 		id SERIAL NOT NULL PRIMARY KEY,
 		alias TEXT NOT NULL UNIQUE,
 		url TEXT NOT NULL UNIQUE,
-    	userId TEXT NOT NULL UNIQUE,
+    	userId TEXT NOT NULL,
     	isDeleted BOOL NOT NULL DEFAULT FALSE,
 		created TIMESTAMP with time zone NOT NULL DEFAULT now());`)
 	tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);`)
