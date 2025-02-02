@@ -121,6 +121,7 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 		const op = "controller.DeleteURLSHandler"
 		// check the body
 		body, err := io.ReadAll(req.Body)
+		c.logger.Info("Request body in DeleteURLSHandler", zap.String("body: ", string(body)))
 		if err != nil || len(body) == 0 {
 			c.logger.Error("Failed to read request body", zap.Error(err))
 			res.WriteHeader(http.StatusUnauthorized) // changed from 400
