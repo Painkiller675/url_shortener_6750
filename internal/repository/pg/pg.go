@@ -49,11 +49,12 @@ func NewStorage(ctx context.Context, conStr string) (*Storage, error) { // TODO:
 	// создаём таблицу
 	tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS url(
 		id SERIAL NOT NULL PRIMARY KEY,
-		alias TEXT NOT NULL UNIQUE,
-		url TEXT NOT NULL UNIQUE,
+		alias TEXT NOT NULL,
+		url TEXT NOT NULL,
     	userId TEXT NOT NULL,
     	isDeleted BOOL NOT NULL DEFAULT FALSE,
-		created TIMESTAMP with time zone NOT NULL DEFAULT now());`)
+		created TIMESTAMP with time zone NOT NULL DEFAULT now(),
+    	UNIQUE (alias, url, userId));`)
 	tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);`)
 
 	// коммитим транзакцию
