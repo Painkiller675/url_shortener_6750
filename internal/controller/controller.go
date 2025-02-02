@@ -119,7 +119,7 @@ func (c *Controller) setAuthToken(w http.ResponseWriter, tokenStr string) {
 func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.DeleteURLSHandler"
-		// check the body..
+		// check the body
 		body, err := io.ReadAll(req.Body)
 		if err != nil || len(body) == 0 {
 			c.logger.Error("Failed to read request body", zap.Error(err))
