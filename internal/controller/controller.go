@@ -237,6 +237,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 					c.logger.Info("Failed to write response", zap.Error(err))
 					return
 				}
+				return
 
 			} else {
 				c.logger.Info("Failed to store URL", zap.Error(err))
@@ -364,6 +365,7 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 					c.logger.Error("[ERROR]", zap.Error(err))
 					return
 				}
+				return
 
 			} else {
 				c.logger.Info("Failed to store URL", zap.String("place:", op), zap.Error(err))
