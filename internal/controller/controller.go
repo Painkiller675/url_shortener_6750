@@ -222,8 +222,23 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 				c.logger.Info("URL already exists!", zap.Error(err))
 				c.logger.Info("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL))
 				httpStatus = http.StatusConflict
-				http.Error(res, err.Error(), httpStatus)
-				return
+				// response molding
+				baseURL := config.StartOptions.BaseURL
+				resultURL, err := url.JoinPath(baseURL, randAl)
+				if err != nil {
+					http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+					return
+				}
+
+				res.Header().Set("Content-Type", "text/plain")
+				res.Header().Set("Content-Length", strconv.Itoa(len([]byte(resultURL))))
+				res.WriteHeader(httpStatus) // 201 or 409
+				_, err = res.Write([]byte(resultURL))
+				if err != nil {
+					c.logger.Info("Failed to write response", zap.Error(err))
+					return
+				}
+
 			} else {
 				c.logger.Info("Failed to store URL", zap.Error(err))
 				http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
