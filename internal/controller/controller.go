@@ -216,12 +216,11 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 		randAl := service.GetRandString(string(body))
 		c.logger.Info("INSERT IN DATABASE", zap.String("Alias:", randAl), zap.String("BODY: ", string(body)))
 		_, err = c.storage.StoreAlURL(req.Context(), randAl, string(body), userID) // TODO [MENTOR]: mb del _ or change driver to support id?
-		httpStatus := http.StatusCreated
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // the try to short already existed url pg database
 				c.logger.Info("URL already exists!", zap.Error(err))
 				c.logger.Info("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL))
-				httpStatus = http.StatusConflict
+				// response with existing url and 409
 				// response molding
 				baseURL := config.StartOptions.BaseURL
 				resultURL, err := url.JoinPath(baseURL, randAl)
@@ -232,7 +231,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 
 				res.Header().Set("Content-Type", "text/plain")
 				res.Header().Set("Content-Length", strconv.Itoa(len([]byte(resultURL))))
-				res.WriteHeader(httpStatus) // 201 or 409
+				res.WriteHeader(http.StatusConflict) // 409
 				_, err = res.Write([]byte(resultURL))
 				if err != nil {
 					c.logger.Info("Failed to write response", zap.Error(err))
@@ -246,7 +245,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 			}
 
 		}
-
+		// if everything is ok => add url into the database
 		// response molding
 		baseURL := config.StartOptions.BaseURL
 		resultURL, err := url.JoinPath(baseURL, randAl)
@@ -257,7 +256,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 
 		res.Header().Set("Content-Type", "text/plain")
 		res.Header().Set("Content-Length", strconv.Itoa(len([]byte(resultURL))))
-		res.WriteHeader(httpStatus) // 201 or 409
+		res.WriteHeader(http.StatusCreated) // 201 or 409
 		_, err = res.Write([]byte(resultURL))
 		if err != nil {
 			c.logger.Info("Failed to write response", zap.Error(err))
@@ -334,21 +333,48 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 		// save the data
 		c.logger.Info("INSERT IN DATABASE", zap.String("ShortURL:", randAl), zap.String("OrURL::", orStruct.OrURL))
 		_, err = c.storage.StoreAlURL(req.Context(), randAl, orStruct.OrURL, userID)
-		httpStatus := http.StatusCreated
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // if alias for url already exists in the pg database
 				c.logger.Info("URL already exists!", zap.Error(err))
-				httpStatus = http.StatusConflict
+				// return existing short url
+				// base URL
+				baseURL := config.StartOptions.BaseURL
+				shURL, err := url.JoinPath(baseURL, randAl)
+				if err != nil {
+					c.logger.Info("[ERROR]", zap.Error(err))
+					http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+					return
+				}
+				// add short URL to the auxiliary struct
+				jsStruct.ShURL = shURL
+				// marshal data for response
+				marData, err := json.Marshal(jsStruct)
+				if err != nil {
+					c.logger.Error("[ERROR]", zap.Error(err))
+					http.Error(res, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				// headers molding
+				res.Header().Set("Content-Type", "application/json")
+				//res.Header().Set("Content-Length", strconv.Itoa(len(marData)))
+				res.WriteHeader(http.StatusConflict) // 409
+				// response body molding
+				_, err = res.Write(marData)
+				if err != nil {
+					c.logger.Error("[ERROR]", zap.Error(err))
+					return
+				}
+
 			} else {
 				c.logger.Info("Failed to store URL", zap.String("place:", op), zap.Error(err))
 				http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
 		}
+		//if no errors => add url into the database
 		// base URL
 		baseURL := config.StartOptions.BaseURL
 		shURL, err := url.JoinPath(baseURL, randAl)
-
 		if err != nil {
 			c.logger.Info("[ERROR]", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -366,7 +392,7 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 		// headers molding
 		res.Header().Set("Content-Type", "application/json")
 		//res.Header().Set("Content-Length", strconv.Itoa(len(marData)))
-		res.WriteHeader(httpStatus) // 201 or 409
+		res.WriteHeader(http.StatusCreated) // 201
 		// response body molding
 		_, err = res.Write(marData)
 		if err != nil {
