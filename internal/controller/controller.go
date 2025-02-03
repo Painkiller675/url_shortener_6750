@@ -336,7 +336,7 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 		_, err = c.storage.StoreAlURL(req.Context(), randAl, orStruct.OrURL, userID)
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // if alias for url already exists in the pg database
-				c.logger.Info("URL already exists!", zap.Error(err))
+				c.logger.Info("URL already exists !", zap.String("place:", op), zap.Error(err))
 				// return existing short url
 				// base URL
 				baseURL := config.StartOptions.BaseURL
@@ -360,6 +360,7 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 				//res.Header().Set("Content-Length", strconv.Itoa(len(marData)))
 				res.WriteHeader(http.StatusConflict) // 409
 				// response body molding
+				c.logger.Info("response in CreateShortURLJSONHandler: ", zap.String("body", string(marData)), zap.String("shortURL: ", jsStruct.ShURL), zap.String("orURL: ", orStruct.OrURL))
 				_, err = res.Write(marData)
 				if err != nil {
 					c.logger.Error("[ERROR]", zap.Error(err))
