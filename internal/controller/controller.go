@@ -182,13 +182,13 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 		// TODO gone status!!!!
 		// c.wg.Add(1) // todo define wait group in main and bring it to controller
 		//
-
+		// fill the channel to delete urls
 		c.delJobs <- JobToDelete{UserID: userID, LsURL: aliasesToDel}
 
 		// go func() {
 		// 	defer c.wg.Done()
 		// 	if err := c.storage.DeleteURLsByUserID(req.Context(), userID, aliasesToDel); err != nil {
-		// 		c.logger.Error("[ERROR]", zap.Error(err)) // TODO [MENTOR]: how to go it up? is it necessary?
+		// 		c.logger.Error("[ERROR]", zap.Error(err)) // TODO [MENTOR]: it doesn't work, cause I should do smth in main stream
 		// 	}
 		// }()
 	}

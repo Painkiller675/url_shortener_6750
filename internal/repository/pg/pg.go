@@ -76,7 +76,6 @@ func (s *Storage) StoreAlURL(ctx context.Context, alias string, url string, user
 		err = fmt.Errorf("%s: %w", op, err)
 		return 0, err
 	}
-	fmt.Println("1. alias = ", alias)
 	_, err = stmt.ExecContext(ctx, alias, url, userID) // _ = res (to ge LastId)
 	if err != nil {
 		fmt.Printf("%s: %s\n", op, err)
