@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"github.com/Painkiller675/url_shortener_6750/internal/service"
@@ -14,6 +15,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/lib/pq"
 	"go.uber.org/zap"
+
 	//_ github.com/lib/pq
 
 	"time"
@@ -54,7 +56,7 @@ func NewStorage(ctx context.Context, conStr string) (*Storage, error) { // TODO:
     	userId TEXT NOT NULL,
     	isDeleted BOOL NOT NULL DEFAULT FALSE,
 		created TIMESTAMP with time zone NOT NULL DEFAULT now(),
-    	UNIQUE (alias, url, userId));`)
+    	UNIQUE (alias, url));`)
 	tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);`)
 
 	// коммитим транзакцию
@@ -258,6 +260,7 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 func (s *Storage) DeleteURLsByUserID(ctx context.Context, userID string, aliasesToDel []string) (err error) {
 	const op = "repository.pg.DeleteURLsByUserID"
 	const deleteURLs = "UPDATE url SET isDeleted = true WHERE userId = $1 AND alias = ANY($2)"
+
 	var stmt *sql.Stmt
 	stmt, err = s.conn.Prepare(deleteURLs) // TODO[MENTOR]: is it ok to prepare it here?
 	if err != nil {
@@ -280,7 +283,7 @@ func (s *Storage) DeleteURLsByUserID(ctx context.Context, userID string, aliases
 func (s *Storage) CheckIfUserExists(ctx context.Context, userID string) error {
 	const op = "repository.pg.CheckIfUserExists"
 	// TODO [MENTOR] mb I should put all the queries into the constants?!
-	row := s.conn.QueryRowContext(ctx, "SELECT * FROM url WHERE userId=$1;", userID)
+	row := s.conn.QueryRowContext(ctx, "SELECT url FROM url WHERE userId=$1;", userID)
 	var orURL string
 	err := row.Scan(&orURL)
 	if err != nil {

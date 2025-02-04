@@ -2,6 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"sync"
+
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/controller"
 	gzipMW "github.com/Painkiller675/url_shortener_6750/internal/middleware/gzip"
@@ -9,9 +14,6 @@ import (
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"log"
-	"net/http"
-	"sync"
 )
 
 func main() {
@@ -35,10 +37,15 @@ func main() {
 	if err != nil {
 		panic(err) // TODO: [MENTOR] is it good to panic here or I could handle it miles better?
 	}
+
+	chanJobs := make(chan controller.JobToDelete, 100)
+	defer close(chanJobs)
+
+	go deleteUrl(s, chanJobs)
 	// create a wait group
 	var wg sync.WaitGroup // TODO bring it to controller
 	// init controller
-	c := controller.New(l.Logger, s, &wg) //
+	c := controller.New(l.Logger, s, chanJobs) //
 
 	// init router
 	r := chi.NewRouter()
@@ -55,7 +62,7 @@ func main() {
 		r.Post("/api/shorten", c.CreateShortURLJSONHandler())
 		r.Post("/api/shorten/batch", c.CreateShortURLJSONBatchHandler())
 		r.Get("/api/user/urls", c.GetUserURLSHandler())
-		r.Get("/api/user/urls", c.DeleteURLSHandler())
+		r.Delete("/api/user/urls", c.DeleteURLSHandler())
 
 	})
 	//start server
@@ -64,4 +71,12 @@ func main() {
 		panic(err)
 	}
 	wg.Wait() // gracefull shutdown
+}
+
+func deleteUrl(s repository.URLStorage, jobs chan controller.JobToDelete) {
+	for job := range jobs {
+		if err := s.DeleteURLsByUserID(context.Background(), job.UserId, job.LsUrl); err != nil {
+			fmt.Println("[ERROR]", zap.Error(err)) // TODO [MENTOR]: how to go it up? is it necessary?
+		}
+	}
 }

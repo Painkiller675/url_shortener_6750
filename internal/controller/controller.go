@@ -5,6 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
@@ -12,14 +19,12 @@ import (
 	"github.com/Painkiller675/url_shortener_6750/internal/service"
 	"github.com/golang-jwt/jwt/v4"
 	"go.uber.org/zap"
-	"io"
-	"net/http"
-	"net/url"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
+
+type JobToDelete struct {
+	UserId string
+	LsUrl  []string
+}
 
 // JSONStruct is used to unmarshal js request nd send js response in CreateShortURLJSONHandler
 type JSONStructSh struct {
@@ -32,11 +37,12 @@ type JSONStructOr struct {
 type Controller struct {
 	logger  *zap.Logger
 	storage repository.URLStorage
-	wg      *sync.WaitGroup
+	// wg      *sync.WaitGroup
+	delJobs chan JobToDelete
 }
 
-func New(logger *zap.Logger, storage repository.URLStorage, wg *sync.WaitGroup) *Controller {
-	return &Controller{logger: logger, storage: storage, wg: wg}
+func New(logger *zap.Logger, storage repository.URLStorage, chJobs chan JobToDelete) *Controller {
+	return &Controller{logger: logger, storage: storage, delJobs: chJobs}
 }
 
 // genJWTTokenString create JWT token and return it in string type
@@ -174,14 +180,17 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 		res.Header().Set("Content-Type", "application/json")
 		res.WriteHeader(http.StatusAccepted) // TODO [MENTOR]: when it would be send ?? I have a goroutine here!
 		// TODO gone status!!!!
-		c.wg.Add(1) // todo define wait group in main and bring it to controller
+		// c.wg.Add(1) // todo define wait group in main and bring it to controller
 		//
-		go func() {
-			defer c.wg.Done()
-			if err := c.storage.DeleteURLsByUserID(req.Context(), userID, aliasesToDel); err != nil {
-				c.logger.Error("[ERROR]", zap.Error(err)) // TODO [MENTOR]: how to go it up? is it necessary?
-			}
-		}()
+
+		c.delJobs <- JobToDelete{UserId: userID, LsUrl: aliasesToDel}
+
+		// go func() {
+		// 	defer c.wg.Done()
+		// 	if err := c.storage.DeleteURLsByUserID(req.Context(), userID, aliasesToDel); err != nil {
+		// 		c.logger.Error("[ERROR]", zap.Error(err)) // TODO [MENTOR]: how to go it up? is it necessary?
+		// 	}
+		// }()
 	}
 }
 
@@ -394,6 +403,7 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 		}
 		// headers molding
 		res.Header().Set("Content-Type", "application/json")
+		c.logger.Info("headers", zap.Any("header", res.Header().Values("Content-Type")))
 		//res.Header().Set("Content-Length", strconv.Itoa(len(marData)))
 		res.WriteHeader(http.StatusCreated) // 201
 		// response body molding
@@ -554,7 +564,7 @@ func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 		}
 
 		// marshal data for response
-		marData, err := json.Marshal(*respAlURLStruct)
+		marData, err := json.Marshal(respAlURLStruct)
 		if err != nil {
 			c.logger.Error("[ERROR]", zap.Error(err))
 			http.Error(res, err.Error(), http.StatusInternalServerError)
