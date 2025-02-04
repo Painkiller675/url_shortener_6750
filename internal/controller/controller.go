@@ -22,8 +22,8 @@ import (
 )
 
 type JobToDelete struct {
-	UserId string
-	LsUrl  []string
+	UserID string
+	LsURL  []string
 }
 
 // JSONStruct is used to unmarshal js request nd send js response in CreateShortURLJSONHandler
@@ -183,7 +183,7 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 		// c.wg.Add(1) // todo define wait group in main and bring it to controller
 		//
 
-		c.delJobs <- JobToDelete{UserId: userID, LsUrl: aliasesToDel}
+		c.delJobs <- JobToDelete{UserID: userID, LsURL: aliasesToDel}
 
 		// go func() {
 		// 	defer c.wg.Done()

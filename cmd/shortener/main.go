@@ -75,7 +75,7 @@ func main() {
 
 func deleteUrl(s repository.URLStorage, jobs chan controller.JobToDelete) {
 	for job := range jobs {
-		if err := s.DeleteURLsByUserID(context.Background(), job.UserId, job.LsUrl); err != nil {
+		if err := s.DeleteURLsByUserID(context.Background(), job.UserID, job.LsURL); err != nil {
 			fmt.Println("[ERROR]", zap.Error(err)) // TODO [MENTOR]: how to go it up? is it necessary?
 		}
 	}
