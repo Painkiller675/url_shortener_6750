@@ -41,7 +41,7 @@ func main() {
 	chanJobs := make(chan controller.JobToDelete, 100)
 	defer close(chanJobs)
 
-	go deleteUrl(s, chanJobs)
+	go deleteURL(s, chanJobs)
 	// create a wait group
 	var wg sync.WaitGroup // TODO bring it to controller
 	// init controller
@@ -73,7 +73,7 @@ func main() {
 	wg.Wait() // gracefull shutdown
 }
 
-func deleteUrl(s repository.URLStorage, jobs chan controller.JobToDelete) {
+func deleteURL(s repository.URLStorage, jobs chan controller.JobToDelete) {
 	for job := range jobs {
 		if err := s.DeleteURLsByUserID(context.Background(), job.UserID, job.LsURL); err != nil {
 			fmt.Println("[ERROR]", zap.Error(err)) // TODO [MENTOR]: how to go it up? is it necessary?
