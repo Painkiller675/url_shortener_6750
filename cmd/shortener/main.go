@@ -41,8 +41,10 @@ func main() {
 	// init jobs for deleting
 	chanJobs := make(chan controller.JobToDelete, 100)
 	defer close(chanJobs)
+
 	// launch the delete goroutine
 	go deleteURL(s, chanJobs)
+
 	// create a wait group
 	var wg sync.WaitGroup // TODO bring it to controller
 	// init controller
