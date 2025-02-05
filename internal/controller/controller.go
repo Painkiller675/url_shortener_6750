@@ -136,6 +136,7 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 		c.logger.Info("DeleteURLSHandler", zap.String("Request body: ", string(body)), zap.String("url", req.URL.String()))
 
 		// retrieve token if any
+		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
 		userID := c.retrieveUserIDFromTokenString(req)
 		if userID == "-1" { // can't retrieve token => error
 			c.logger.Info("Request token issues", zap.String("token", string(body)))
@@ -209,6 +210,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 		var tokenStr, userID string
 
 		// retrieve token if any
+		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
 		userID = c.retrieveUserIDFromTokenString(req)
 		if userID == "-1" { // can't retrieve => register a new user a
 			tokenStr, userID, err = c.genJWTTokenString()
@@ -326,6 +328,7 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 		var tokenStr, userID string
 		var err error
 		// retrieve token if any
+		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
 		userID = c.retrieveUserIDFromTokenString(req)
 		if userID == "-1" { // can't retrieve => register a new user a
 			tokenStr, userID, err = c.genJWTTokenString()
@@ -534,6 +537,7 @@ func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 		const op = "controller.GetUserURLSHandler"
 
 		// retrieve token if any
+		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
 		userID := c.retrieveUserIDFromTokenString(req)
 		if userID == "-1" { // can't retrieve => return 401 Unauthorized
 			res.WriteHeader(http.StatusUnauthorized)
