@@ -542,7 +542,7 @@ func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 		if userID == "-1" { // can't retrieve => return 401 Unauthorized
 			var tokenStr string
 			var err error
-			tokenStr, userID, err = c.genJWTTokenString()
+			tokenStr, _, err = c.genJWTTokenString()
 			if err != nil {
 				c.logger.Info("Can't generate token!", zap.Error(err))
 				res.WriteHeader(http.StatusInternalServerError)
