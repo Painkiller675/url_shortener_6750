@@ -540,7 +540,7 @@ func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
 		userID := c.retrieveUserIDFromTokenString(req)
 		if userID == "-1" { // can't retrieve => return 401 Unauthorized
-			res.WriteHeader(http.StatusUnauthorized)
+			res.WriteHeader(http.StatusNoContent)
 			return
 		}
 		//var alURLStruct = models.UserURLS{}
