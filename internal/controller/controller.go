@@ -540,6 +540,16 @@ func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
 		userID := c.retrieveUserIDFromTokenString(req)
 		if userID == "-1" { // can't retrieve => return 401 Unauthorized
+			var tokenStr string
+			var err error
+			tokenStr, userID, err = c.genJWTTokenString()
+			if err != nil {
+				c.logger.Info("Can't generate token!", zap.Error(err))
+				res.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			// add generate token string to the Cookies
+			c.setAuthToken(res, tokenStr)
 			res.WriteHeader(http.StatusNoContent)
 			return
 		}
