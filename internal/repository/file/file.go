@@ -46,12 +46,12 @@ func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string, _ st
 }
 
 // GetDataByUserID - a blind plug
-func (s *Storage) GetDataByUserID(ctx context.Context, userID string) (*[]models.UserURLS, error) {
+func (s *Storage) GetDataByUserID(_ context.Context, _ string) (*[]models.UserURLS, error) {
 	return nil, nil
 }
 
 // a blind plug to be able to implement the interface
-func (s *Storage) Ping(ctx context.Context) error {
+func (s *Storage) Ping(_ context.Context) error {
 	return errors.New("DB isn't available")
 }
 
@@ -210,4 +210,14 @@ func (c *Consumer) ReadEvent() (*Storage, error) {
 
 func (c *Consumer) Close() error {
 	return c.file.Close()
+}
+
+// DeleteURLsByUserID is a blind plug here
+
+func (s *Storage) DeleteURLsByUserID(_ context.Context, _ string, _ []string) error {
+	return nil
+}
+
+func (s *Storage) CheckIfUserExists(ctx context.Context, userID string) error {
+	return nil
 }

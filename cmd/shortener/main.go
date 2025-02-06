@@ -2,6 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"sync"
+
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/controller"
 	gzipMW "github.com/Painkiller675/url_shortener_6750/internal/middleware/gzip"
@@ -9,8 +14,6 @@ import (
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"log"
-	"net/http"
 )
 
 func main() {
@@ -22,6 +25,7 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
+	l.Logger.Info("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL))
 	//render logger for gzip
 	//gzipMW.NewGzipLogger(l.Logger)
 
@@ -34,8 +38,17 @@ func main() {
 		panic(err) // TODO: [MENTOR] is it good to panic here or I could handle it miles better?
 	}
 
+	// init jobs for deleting
+	chanJobs := make(chan controller.JobToDelete, 100)
+	defer close(chanJobs)
+
+	// launch the delete goroutine
+	go deleteURL(s, chanJobs)
+
+	// create a wait group
+	var wg sync.WaitGroup // TODO bring it to controller
 	// init controller
-	c := controller.New(l.Logger, s)
+	c := controller.New(l.Logger, s, chanJobs) //
 
 	// init router
 	r := chi.NewRouter()
@@ -52,6 +65,7 @@ func main() {
 		r.Post("/api/shorten", c.CreateShortURLJSONHandler())
 		r.Post("/api/shorten/batch", c.CreateShortURLJSONBatchHandler())
 		r.Get("/api/user/urls", c.GetUserURLSHandler())
+		r.Delete("/api/user/urls", c.DeleteURLSHandler())
 
 	})
 	//start server
@@ -59,5 +73,13 @@ func main() {
 	if err := http.ListenAndServe(config.StartOptions.HTTPServer.Address, r); err != nil {
 		panic(err)
 	}
+	wg.Wait() // gracefull shutdown
+}
 
+func deleteURL(s repository.URLStorage, jobs chan controller.JobToDelete) {
+	for job := range jobs {
+		if err := s.DeleteURLsByUserID(context.Background(), job.UserID, job.LsURL); err != nil {
+			fmt.Println("[ERROR]", zap.Error(err)) // TODO [MENTOR]: how to go it up? is it necessary?
+		}
+	}
 }
