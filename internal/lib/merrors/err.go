@@ -5,5 +5,6 @@ import "errors"
 var (
 	ErrURLNotFound      = errors.New("url not found")
 	ErrURLOrAliasExists = errors.New("url or alias exists")
-	ErrALiasNotFound    = errors.New("alias not found")
+	ErrURLIsDel         = errors.New("url was deleted")
+	ErrUserNotFound     = errors.New("user not found")
 )
