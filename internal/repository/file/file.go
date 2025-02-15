@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
+	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"go.uber.org/zap"
 	"io"
@@ -15,39 +16,97 @@ import (
 )
 
 type Storage struct {
-	AlURLStorage map[string]string `json:"url_storage"`
-	Filename     string            `json:"-"`
-	mx           *sync.RWMutex     `json:"-"` // TODO pointer or not??
-	Logger       *zap.Logger       `json:"-"` // TODO [MENTOR] make it public or private and why???
+	//AlURLStorage map[string]string `json:"url_storage"`
+	AlURLStorage []*storageWithUserID `json:"url_storage"`
+	Filename     string               `json:"-"`
+	logger       *zap.Logger          `json:"-"`
+	//mx           *sync.RWMutex     `json:"-"` // TODO pointer or not??
 }
 
 func NewStorage(filename string, logger *zap.Logger) *Storage {
+	logger.Info("FILE storage is available")
+	//feed data from the file into the memory
 	stor, err := getStorage(filename)
 	if err != nil {
-		logger.Fatal("[FATAL] file storage is not available", zap.Error(err))
+		if err != nil {
+			logger.Fatal("[FATAL] file storage is not available", zap.Error(err))
+		}
 	}
+	fmt.Println("[INFO] Data got successfully ! DATA:", stor.AlURLStorage)
 	return &Storage{
 		AlURLStorage: stor.AlURLStorage, // mb save all the struct but wht about logger etc?
-		mx:           &sync.RWMutex{},
-		Logger:       logger,
-		Filename:     filename,
+		//mx:           &sync.RWMutex{},
+		Filename: filename,
+		logger:   logger,
 	}
 }
 
-func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string, _ string) (int64, error) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
-	s.AlURLStorage[alias] = orURL
-	if err := saveStorage(s.Filename, s); err != nil {
-		s.Logger.Info("Failed to store the file for reading!", zap.String("filename", config.StartOptions.Filename), zap.Error(err)) // TODO mb I should panic here?
-		return 1, err                                                                                                                // 1 - a blind plug
+type storageWithUserID struct {
+	UserID       string            `json:"userID"`
+	AlURLStorage map[string]string `json:"url_storage"`
+	mx           *sync.RWMutex     `json:"-"`
+}
+
+func newStorageWithUserID(userID string, alias string, url string) *storageWithUserID {
+	// 1st init
+	var alurlmap = make(map[string]string)
+	alurlmap[alias] = url
+	return &storageWithUserID{
+		UserID:       userID,
+		AlURLStorage: alurlmap, // TODO [MENTOR] Do I :assign the copy here? Is it OK? I get it by still ..
+		mx:           &sync.RWMutex{}}
+
+}
+
+func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string, userID string) (int64, error) {
+	// find needed storage for a specific userID
+	for _, userIDStor := range s.AlURLStorage {
+		if userIDStor.UserID == userID {
+			userIDStor.mx.Lock()
+			defer userIDStor.mx.Unlock()
+			userIDStor.AlURLStorage[alias] = addExistMarker(orURL)
+			// feed data into the file-database (for updating)
+			if err := saveStorage(s.Filename, s.AlURLStorage); err != nil {
+				s.logger.Info("Failed to store the file for reading!", zap.String("filename", config.StartOptions.Filename), zap.Error(err)) // TODO mb I should panic here?
+				return 1, err
+			}
+			// we have handled it for userID needed => break
+			return 1, nil
+		}
 	}
-	return 1, nil // a blind plug
+	// new user init
+	// We haven't found the user with userID in the storage => add new userID
+	s.AlURLStorage = append(s.AlURLStorage, newStorageWithUserID(userID, alias, addExistMarker(orURL)))
+	// feed data into the file-database (for updating)
+	if err := saveStorage(s.Filename, s.AlURLStorage); err != nil {
+		s.logger.Info("Failed to store the file for reading!", zap.String("filename", config.StartOptions.Filename), zap.Error(err)) // TODO mb I should panic here?
+		return 1, err
+	}
+	return 1, nil
+
 }
 
 // GetDataByUserID - a blind plug
-func (s *Storage) GetDataByUserID(_ context.Context, _ string) (*[]models.UserURLS, error) {
-	return nil, nil
+func (s *Storage) GetDataByUserID(_ context.Context, userID string) (*[]models.UserURLS, error) {
+	if s.AlURLStorage == nil {
+		er := fmt.Errorf("no data for %v", userID)
+		return nil, er
+	}
+	for _, userIDStorage := range s.AlURLStorage {
+		if userIDStorage.UserID == userID {
+			var dataOfuserID = make([]models.UserURLS, 0, 20)
+			userIDStorage.mx.RLock()
+			defer userIDStorage.mx.RUnlock()
+			for al, url := range userIDStorage.AlURLStorage {
+				dataOfuserID = append(dataOfuserID, models.UserURLS{ShortURL: al, OriginalURL: delMarker(url)})
+			}
+			return &dataOfuserID, nil
+
+		}
+	}
+	// such a userID doesn't have any record
+	er := fmt.Errorf("no data for %v", userID)
+	return nil, er
 }
 
 // a blind plug to be able to implement the interface
@@ -66,7 +125,7 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 	for _, idURLSh := range *corURLSh {
 		_, err := s.StoreAlURL(ctx, idURLSh.ShortURL, idURLSh.OriginalURL, "") // TODO: how to use _ here?
 		if err != nil {
-			s.Logger.Info(op, zap.String("filename", config.StartOptions.Filename), zap.Error(err))
+			s.logger.Info(op, zap.String("filename", config.StartOptions.Filename), zap.Error(err))
 			return nil, err
 		}
 		// molding the object for response (in controller)
@@ -78,12 +137,69 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 	return &toResp, nil
 }
 func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
-	if orURL, ok := s.AlURLStorage[alias]; ok {
-		return orURL, nil
+	const op = "file.GetOrURLByAl"
+	// Если горутина собирается читать данные, то она вызывает метод RLock(). Метод RLock() не
+	//даёт начать запись пока не будут завершены все операции чтения.
+	fmt.Printf("[INFO] place1: %s", op)
+	if s.AlURLStorage == nil { //TODO [MENTOR] IS IT NEEDED HERE???!
+		er := fmt.Errorf("original URL for %v doesn't exist in the file-DB", alias)
+		return "", er
 	}
-	return "", fmt.Errorf("original URL for %v doesn't exist in the DB", alias) //TODO handle that!
+	fmt.Printf("[INFO] place2: %s", op)
+	for _, userIDStorage := range s.AlURLStorage {
+		fmt.Printf("[INFO] place3: %s", op)
+		userIDStorage.mx.RLock() //// TODO: if I del it I don't have an error! #############################
+		fmt.Printf("[INFO] place4: %s", op)
+		defer userIDStorage.mx.RUnlock()
+		fmt.Printf("[INFO] place5: %s", op)
+		if orURL, ok := userIDStorage.AlURLStorage[alias]; ok {
+			fmt.Printf("[INFO] place6: %s", op)
+			if isExist(orURL) { // CHECK the 1st founded URL !
+				fmt.Printf("[INFO] place7: %s", op)
+				return delMarker(orURL), nil
+			}
+			// URL doesn't exist!
+			fmt.Printf("[INFO] place8: %s", op)
+			return "", fmt.Errorf("%s: %w", op, merrors.ErrURLNotFound)
+		}
+	}
+	fmt.Printf("[INFO] place9: %s", op)
+	er := fmt.Errorf("original URL for %v doesn't exist in the file-DB", alias)
+	return "", er
+
+}
+
+func (s *Storage) DeleteURLsByUserID(_ context.Context, userID string, aliasToDel []string) error {
+	const op = "file.DeleteURLsByUserID"
+	if s.AlURLStorage == nil {
+		return fmt.Errorf("[INFO] file DB is empty")
+	}
+	for _, userIDStorage := range s.AlURLStorage {
+		if userIDStorage.UserID == userID {
+			userIDStorage.mx.Lock()
+			defer userIDStorage.mx.Unlock()
+			for _, alToDel := range aliasToDel {
+				// if we have such alias in the memory => del this
+				if _, ok := userIDStorage.AlURLStorage[alToDel]; ok {
+					userIDStorage.AlURLStorage[alToDel] = changeExistToDelMarker(userIDStorage.AlURLStorage[alToDel])
+				}
+			}
+			return nil
+		}
+
+	}
+	// if we don't have such a user in the DB
+	return fmt.Errorf("[%v] user doesn't exist", op)
+}
+
+func (s *Storage) CheckIfUserExists(_ context.Context, userID string) error {
+	const op = "file.CheckIfUserExists"
+	for _, userIDStorage := range s.AlURLStorage {
+		if userIDStorage.UserID == userID {
+			return nil
+		}
+	}
+	return fmt.Errorf("[%s]: %w", op, merrors.ErrUserNotFound)
 }
 
 // FILE SAVING PART //
@@ -102,19 +218,22 @@ func getStorage(filename string) (*Storage, error) {
 		if errors.Is(err, io.EOF) {
 			//s.logger.Info("File is empty (reading)", zap.String("filename", filename))
 			// return empty storage
-			return &Storage{
-				AlURLStorage: make(map[string]string),
-			}, nil
+			//return &Storage{AlURLStorage: storageWithUserID{AlURLStorage: make(map[string]string)}}, nil
+			return &Storage{}, nil
 		}
 		// handle other possible errors
 		//s.logger.Error("Failed to read the file for reading!", zap.String("filename", filename), zap.Error(merrors))
 		return nil, err
 	}
-	return gotData, nil
+	// add mutexes for structures which have been read from the file
+	for _, storWithID := range gotData {
+		storWithID.mx = &sync.RWMutex{}
+	}
+	return &Storage{AlURLStorage: gotData}, nil
 }
 
 // func (s *safeStorage) saveStorage(filename string) error {
-func saveStorage(filename string, toSave *Storage) error {
+func saveStorage(filename string, toSave []*storageWithUserID) error {
 	opnFile, err := NewProducer(filename)
 	if err != nil {
 		//s.logger.Error("Failed to open the file for saving!", zap.String("filename", filename), zap.Error(merrors))
@@ -126,6 +245,8 @@ func saveStorage(filename string, toSave *Storage) error {
 	}
 	return nil
 }
+
+// DeleteURLsByUserID is a blind plug here
 
 // file-saving auxiliary code
 type Producer struct {
@@ -147,7 +268,7 @@ func NewProducer(filename string) (*Producer, error) {
 	}, nil
 }
 
-func (p *Producer) WriteEvent(event *Storage) error {
+func (p *Producer) WriteEvent(event []*storageWithUserID) error {
 	data, err := json.Marshal(&event)
 	if err != nil {
 		return err
@@ -192,32 +313,47 @@ func NewConsumer(filename string) (*Consumer, error) {
 }
 
 // ReadEvent returns unmarshalled data in the struct
-func (c *Consumer) ReadEvent() (*Storage, error) {
+func (c *Consumer) ReadEvent() ([]*storageWithUserID, error) {
 	// читаем данные до символа переноса строки
 	data, err := c.reader.ReadBytes('\n')
 	if err != nil {
 		return nil, err
 	}
 	// преобразуем данные из JSON-представления в структуру
-	event := Storage{AlURLStorage: make(map[string]string)}
+	//event := Storage{AlURLStorage: storageWithUserID{AlURLStorage: make(map[string]string)}}
+	event := []*storageWithUserID{}
 	err = json.Unmarshal(data, &event)
 	if err != nil {
 		return nil, err
 	}
 
-	return &event, nil
+	return event, nil
 }
 
 func (c *Consumer) Close() error {
 	return c.file.Close()
 }
 
-// DeleteURLsByUserID is a blind plug here
-
-func (s *Storage) DeleteURLsByUserID(_ context.Context, _ string, _ []string) error {
-	return nil
+// functions to implement deleting
+// delMarker deletes the last symbol
+func delMarker(s string) string {
+	s = s[:len(s)-1]
+	return s
+}
+func addExistMarker(s string) string {
+	s = s + "@"
+	return s
 }
 
-func (s *Storage) CheckIfUserExists(ctx context.Context, userID string) error {
-	return nil
+func changeExistToDelMarker(s string) string {
+	s = s[:len(s)-1]
+	s = s + "-"
+	return s
+}
+
+func isExist(s string) bool {
+	if s[len(s)-1:] == "@" {
+		return true
+	}
+	return false
 }

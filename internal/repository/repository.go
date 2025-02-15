@@ -27,7 +27,7 @@ func ChooseStorage(ctx context.Context, logger *zap.Logger) (URLStorage, error) 
 	// if the database storage
 	if config.StartOptions.DBConStr != "" {
 
-		pgStor, err := pg.NewStorage(ctx, config.StartOptions.DBConStr)
+		pgStor, err := pg.NewStorage(ctx, config.StartOptions.DBConStr, logger)
 		if err != nil {
 			logger.Error("[ERROR] Can't open pg database ", zap.Error(err))
 			return nil, err // TODO: [4 MENTOR] unuseful cause I use only panic in constructor in fact, is it ok?

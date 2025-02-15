@@ -72,18 +72,18 @@ func (c *Controller) genJWTTokenString() (string, string, error) { // TODO [MENT
 
 }
 
-func (c *Controller) retrieveUserIDFromTokenString(r *http.Request) string { // TODO [MENTOR]: mb I should replace this func ???
+func (c *Controller) retrieveUserIDFromTokenString(r *http.Request) (string, error) {
 	// get token string from the cookies
 	tokenString, err := r.Cookie("token")
 
 	if err != nil {
 		c.logger.Info("No token!", zap.Error(err))
-		return "-1"
+		return "", errors.New("No token!")
 	}
 	// TODO: [MENTOR] SHOULD I CHECK
 	if tokenString.Value == "" {
 		c.logger.Info("Empty token!", zap.Error(err))
-		return "-1"
+		return "", errors.New("Empty token!")
 	}
 	// создаём экземпляр структуры с утверждениями
 	claims := &models.Claims{}
@@ -96,17 +96,17 @@ func (c *Controller) retrieveUserIDFromTokenString(r *http.Request) string { // 
 	})
 	if err != nil {
 		c.logger.Info("Can't parse token!", zap.Error(err))
-		return "-1"
+		return "", errors.New("Can't parse token!")
 	}
 
 	if !token.Valid {
 		c.logger.Info("Invalid token!", zap.Error(err))
-		return "-1"
+		return "", errors.New("Invalid token!")
 	}
 
 	c.logger.Info("Successfully retrieved token!", zap.String("token", tokenString.Value))
 	// возвращаем ID пользователя в читаемом виде
-	return claims.UserID
+	return claims.UserID, nil
 
 }
 
@@ -137,8 +137,8 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 
 		// retrieve token if any
 		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
-		userID := c.retrieveUserIDFromTokenString(req)
-		if userID == "-1" { // can't retrieve token => error
+		userID, err := c.retrieveUserIDFromTokenString(req)
+		if err != nil { // can't retrieve token => error
 			c.logger.Info("Request token issues", zap.String("token", string(body)))
 			res.WriteHeader(http.StatusUnauthorized)
 			return
@@ -165,7 +165,13 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) // TODO [MENTOR]: BadRequest or InternalServerError?
 			return
 		}
-		defer req.Body.Close() // TODO [MENTOR] I didn't assign it should I close it??
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
+			if err != nil {
+				http.Error(res, err.Error(), http.StatusInternalServerError) // TODO [MENTOR]: BadRequest or InternalServerError?
+				return
+			}
+		}(req.Body)
 		// deserialize (unmarshal) the slice of aliases to delete
 
 		var aliasesToDel []string // ids  - the slice of aliases to del
@@ -184,7 +190,9 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 		// c.wg.Add(1) // todo define wait group in main and bring it to controller
 		//
 		// fill the channel to delete urls
-		c.delJobs <- JobToDelete{UserID: userID, LsURL: aliasesToDel}
+		go func() {
+			c.delJobs <- JobToDelete{UserID: userID, LsURL: aliasesToDel}
+		}()
 
 		// go func() {
 		// 	defer c.wg.Done()
@@ -211,8 +219,8 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 
 		// retrieve token if any
 		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
-		userID = c.retrieveUserIDFromTokenString(req)
-		if userID == "-1" { // can't retrieve => register a new user a
+		userID, err = c.retrieveUserIDFromTokenString(req)
+		if err != nil { // can't retrieve => register a new user a
 			tokenStr, userID, err = c.genJWTTokenString()
 			if err != nil {
 				c.logger.Info("Can't generate token!", zap.Error(err))
@@ -282,6 +290,7 @@ func (c *Controller) GetLongURLHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		idAl := req.PathValue("id") // the cap
 		// response molding ...
+		fmt.Println("[INFO] GetLongURLHandler, GOT ID (ALIAS)=  ", idAl)
 		orURL, err := c.storage.GetOrURLByAl(req.Context(), idAl)
 		if err != nil { // TODO: mb I should use status 500 here?
 			if errors.Is(err, merrors.ErrURLIsDel) { // if URL was deleted
@@ -329,8 +338,8 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 		var err error
 		// retrieve token if any
 		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
-		userID = c.retrieveUserIDFromTokenString(req)
-		if userID == "-1" { // can't retrieve => register a new user a
+		userID, err = c.retrieveUserIDFromTokenString(req)
+		if err != nil { // can't retrieve => register a new user a
 			tokenStr, userID, err = c.genJWTTokenString()
 			if err != nil {
 				c.logger.Info("Can't generate token!", zap.Error(err))
@@ -538,8 +547,8 @@ func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 
 		// retrieve token if any
 		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
-		userID := c.retrieveUserIDFromTokenString(req)
-		if userID == "-1" { // can't retrieve => return 401 Unauthorized
+		userID, err := c.retrieveUserIDFromTokenString(req)
+		if err != nil { // can't retrieve => return 401 Unauthorized
 			var tokenStr string
 			var err error
 			tokenStr, _, err = c.genJWTTokenString()

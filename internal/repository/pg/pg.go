@@ -27,8 +27,8 @@ type Storage struct {
 	// TODO mb use logger here
 }
 
-func NewStorage(ctx context.Context, conStr string) (*Storage, error) { // TODO: mb delete error? leave only panic
-
+func NewStorage(ctx context.Context, conStr string, logger *zap.Logger) (*Storage, error) { // TODO: mb delete error? leave only panic
+	logger.Info("POSTGRES storage is available")
 	//connect to the database
 	conn, err := sql.Open("pgx", conStr)
 	if err != nil {
@@ -156,6 +156,9 @@ func (s *Storage) GetDataByUserID(ctx context.Context, userID string) (*[]models
 			return nil, fmt.Errorf("can's scan the row [%s]: %w", op, err)
 		}
 		userData = append(userData, usrData)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return &userData, nil
