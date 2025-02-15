@@ -23,7 +23,7 @@ func NewStorage(logger *zap.Logger) *Storage {
 
 type storageWithUserID struct {
 	UserID   string            `json:"-"` // TODO: use lower case
-	alURLMap map[string]string `json:"al_url_storage"`
+	alURLMap map[string]string `json:"-"`
 	mx       *sync.RWMutex     `json:"-"`
 }
 
@@ -179,8 +179,5 @@ func changeExistToDelMarker(s string) string {
 }
 
 func isExist(s string) bool {
-	if s[len(s)-1:] == "@" {
-		return true
-	}
-	return false
+	return s[len(s)-1:] == "@"
 }

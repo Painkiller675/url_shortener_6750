@@ -78,12 +78,12 @@ func (c *Controller) retrieveUserIDFromTokenString(r *http.Request) (string, err
 
 	if err != nil {
 		c.logger.Info("No token!", zap.Error(err))
-		return "", errors.New("No token!")
+		return "", errors.New("no token")
 	}
 	// TODO: [MENTOR] SHOULD I CHECK
 	if tokenString.Value == "" {
 		c.logger.Info("Empty token!", zap.Error(err))
-		return "", errors.New("Empty token!")
+		return "", errors.New("empty token")
 	}
 	// создаём экземпляр структуры с утверждениями
 	claims := &models.Claims{}
@@ -96,12 +96,12 @@ func (c *Controller) retrieveUserIDFromTokenString(r *http.Request) (string, err
 	})
 	if err != nil {
 		c.logger.Info("Can't parse token!", zap.Error(err))
-		return "", errors.New("Can't parse token!")
+		return "", errors.New("can't parse token")
 	}
 
 	if !token.Valid {
 		c.logger.Info("Invalid token!", zap.Error(err))
-		return "", errors.New("Invalid token!")
+		return "", errors.New("invalid token")
 	}
 
 	c.logger.Info("Successfully retrieved token!", zap.String("token", tokenString.Value))
@@ -290,7 +290,6 @@ func (c *Controller) GetLongURLHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		idAl := req.PathValue("id") // the cap
 		// response molding ...
-		fmt.Println("[INFO] GetLongURLHandler, GOT ID (ALIAS)=  ", idAl)
 		orURL, err := c.storage.GetOrURLByAl(req.Context(), idAl)
 		if err != nil { // TODO: mb I should use status 500 here?
 			if errors.Is(err, merrors.ErrURLIsDel) { // if URL was deleted

@@ -28,11 +28,8 @@ func NewStorage(filename string, logger *zap.Logger) *Storage {
 	//feed data from the file into the memory
 	stor, err := getStorage(filename)
 	if err != nil {
-		if err != nil {
-			logger.Fatal("[FATAL] file storage is not available", zap.Error(err))
-		}
+		logger.Fatal("[FATAL] file storage is not available", zap.Error(err))
 	}
-	fmt.Println("[INFO] Data got successfully ! DATA:", stor.AlURLStorage)
 	return &Storage{
 		AlURLStorage: stor.AlURLStorage, // mb save all the struct but wht about logger etc?
 		//mx:           &sync.RWMutex{},
@@ -140,30 +137,21 @@ func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) 
 	const op = "file.GetOrURLByAl"
 	// Если горутина собирается читать данные, то она вызывает метод RLock(). Метод RLock() не
 	//даёт начать запись пока не будут завершены все операции чтения.
-	fmt.Printf("[INFO] place1: %s", op)
 	if s.AlURLStorage == nil { //TODO [MENTOR] IS IT NEEDED HERE???!
 		er := fmt.Errorf("original URL for %v doesn't exist in the file-DB", alias)
 		return "", er
 	}
-	fmt.Printf("[INFO] place2: %s", op)
 	for _, userIDStorage := range s.AlURLStorage {
-		fmt.Printf("[INFO] place3: %s", op)
 		userIDStorage.mx.RLock() //// TODO: if I del it I don't have an error! #############################
-		fmt.Printf("[INFO] place4: %s", op)
 		defer userIDStorage.mx.RUnlock()
-		fmt.Printf("[INFO] place5: %s", op)
 		if orURL, ok := userIDStorage.AlURLStorage[alias]; ok {
-			fmt.Printf("[INFO] place6: %s", op)
 			if isExist(orURL) { // CHECK the 1st founded URL !
-				fmt.Printf("[INFO] place7: %s", op)
 				return delMarker(orURL), nil
 			}
 			// URL doesn't exist!
-			fmt.Printf("[INFO] place8: %s", op)
 			return "", fmt.Errorf("%s: %w", op, merrors.ErrURLNotFound)
 		}
 	}
-	fmt.Printf("[INFO] place9: %s", op)
 	er := fmt.Errorf("original URL for %v doesn't exist in the file-DB", alias)
 	return "", er
 
@@ -213,7 +201,7 @@ func getStorage(filename string) (*Storage, error) {
 	defer opnFile.Close()
 	// read data nd get the link
 	gotData, err := opnFile.ReadEvent()
-	fmt.Println("gotData = ", gotData)
+	//fmt.Println("gotData = ", gotData)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			//s.logger.Info("File is empty (reading)", zap.String("filename", filename))
@@ -352,8 +340,5 @@ func changeExistToDelMarker(s string) string {
 }
 
 func isExist(s string) bool {
-	if s[len(s)-1:] == "@" {
-		return true
-	}
-	return false
+	return s[len(s)-1:] == "@"
 }
