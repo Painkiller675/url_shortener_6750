@@ -1,3 +1,5 @@
+// The package includes common interface for 3 memory options: memory, file, Postgres DB.
+// It also has ChooseStorage function for database type choosing
 package repository
 
 import (
@@ -23,6 +25,7 @@ type URLStorage interface {
 	CheckIfUserExists(ctx context.Context, userID string) error
 }
 
+// ChooseStorage returns storage example (memory, file or Postgres)
 func ChooseStorage(ctx context.Context, logger *zap.Logger) (URLStorage, error) {
 	// if the database storage
 	if config.StartOptions.DBConStr != "" {

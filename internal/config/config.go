@@ -1,3 +1,5 @@
+// Config is used for setting initial options in the project (ip,baseURL,log level, storage filename, DSN (for DB).
+// It also includes token expiration date and SecretKey
 package config
 
 import (

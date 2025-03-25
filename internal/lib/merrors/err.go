@@ -1,10 +1,15 @@
+// Package consists of the errors which could occur in the app.
 package merrors
 
 import "errors"
 
 var (
-	ErrURLNotFound      = errors.New("url not found")
+	// ErrURLNotFound - URL not found.
+	ErrURLNotFound = errors.New("url not found")
+	// ErrURLOrAliasExists - URL or alias don't exist.
 	ErrURLOrAliasExists = errors.New("url or alias exists")
-	ErrURLIsDel         = errors.New("url was deleted")
-	ErrUserNotFound     = errors.New("user not found")
+	// ErrURLIsDel - wanted URL was deleted.
+	ErrURLIsDel = errors.New("url was deleted")
+	// ErrUserNotFound - can't find the user in the database.
+	ErrUserNotFound = errors.New("user not found")
 )

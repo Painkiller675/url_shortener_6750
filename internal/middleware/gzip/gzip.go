@@ -1,3 +1,4 @@
+// Package is a gzip middleware. It compressed the data in the requests.
 package gzip
 
 import (
