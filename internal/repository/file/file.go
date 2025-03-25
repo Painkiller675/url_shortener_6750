@@ -16,6 +16,7 @@ import (
 	"sync"
 )
 
+// Storage is a basic struct of a file storage
 type Storage struct {
 	//AlURLStorage map[string]string `json:"url_storage"`
 	AlURLStorage []*storageWithUserID `json:"url_storage"`
@@ -294,6 +295,7 @@ func (p *Producer) Close() error {
 	return p.file.Close()
 }
 
+// Consumer - the consumer
 type Consumer struct {
 	file *os.File
 	// добавляем reader в Consumer

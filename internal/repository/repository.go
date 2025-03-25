@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// URLStorage describes the methods which are used to implement 3 database types
 type URLStorage interface {
 	//StoreAlURL(ctx context.Context, alias string, url string) error
 	StoreAlURL(ctx context.Context, alias string, url string, userID string) (int64, error)

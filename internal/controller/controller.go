@@ -28,10 +28,12 @@ type JobToDelete struct {
 	LsURL  []string
 }
 
-// JSONStruct is used to unmarshal js request nd send js response in CreateShortURLJSONHandler
+// JSONStructSh is used to unmarshal js request nd send js response in CreateShortURLJSONHandler
 type JSONStructSh struct {
 	ShURL string `json:"result"`
 }
+
+// JSONStructOr proxy struct
 type JSONStructOr struct {
 	OrURL string `json:"url"`
 }
