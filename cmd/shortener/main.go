@@ -15,7 +15,6 @@ import (
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	_ "net/http/pprof"
 )
 
 // @title My_URL_Shortener
