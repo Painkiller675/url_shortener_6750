@@ -5,10 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+
+	"go.uber.org/zap"
+
 	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
-	"go.uber.org/zap"
-	"sync"
 )
 
 // Storage - the instance of memory database type.

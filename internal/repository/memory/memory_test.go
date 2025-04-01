@@ -2,9 +2,10 @@ package memory
 
 import (
 	"context"
+	"testing"
+
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/middleware/logger"
-	"testing"
 )
 
 func BenchmarkMemory(b *testing.B) {

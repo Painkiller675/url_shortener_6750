@@ -4,6 +4,7 @@ package service
 import (
 	"crypto/sha1"
 	"encoding/hex"
+
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
 )
 
@@ -37,14 +38,3 @@ func CreateBatchIDOrSh(desBatchReq *[]models.JSONBatStructToDesReq) (*[]models.J
 	// returning the batch for response
 	return &idURLSh, nil
 }
-
-/*func GetRandString(n int) string {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[r.Intn(len(letterRunes))]
-	}
-
-	return string(b)
-}
-*/

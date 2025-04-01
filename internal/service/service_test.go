@@ -11,3 +11,8 @@ func BenchmarkService(b *testing.B) {
 	})
 
 }
+
+func ExampleGetRandString() {
+	s1 := "testString"
+	GetRandString(s1)
+}

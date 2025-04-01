@@ -31,17 +31,14 @@ func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	}
 }
 
-// Header - overwriting
 func (c *compressWriter) Header() http.Header {
 	return c.w.Header()
 }
 
-// Write - overwriting
 func (c *compressWriter) Write(p []byte) (int, error) {
 	return c.zw.Write(p)
 }
 
-// WriteHeader writes the header
 func (c *compressWriter) WriteHeader(statusCode int) {
 	if statusCode < 300 {
 		c.w.Header().Set("Content-Encoding", "gzip")
@@ -73,12 +70,10 @@ func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	}, nil
 }
 
-// Read - the overwriting
 func (c compressReader) Read(p []byte) (n int, err error) {
 	return c.zr.Read(p)
 }
 
-// Close closes a gzip object
 func (c *compressReader) Close() error {
 	if err := c.r.Close(); err != nil {
 		return err
@@ -86,7 +81,6 @@ func (c *compressReader) Close() error {
 	return c.zr.Close()
 }
 
-// GzMW the base code of gzip middleware
 func GzMW(h http.Handler) http.Handler {
 	gzipFunc := func(res http.ResponseWriter, req *http.Request) {
 		// copy original request

@@ -3,8 +3,7 @@ package merrors
 
 import "errors"
 
-// main errors
-var ( // main errors
+var (
 	// ErrURLNotFound - URL not found.
 	ErrURLNotFound = errors.New("url not found")
 	// ErrURLOrAliasExists - URL or alias don't exist.

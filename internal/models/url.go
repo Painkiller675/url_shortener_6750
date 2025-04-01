@@ -40,13 +40,3 @@ type Claims struct {
 	jwt.RegisteredClaims
 	UserID string
 }
-
-/*type ExistsURLError struct {
-	ExistedAlias string
-	Err          error
-}
-
-func (e *ExistsURLError) Error() string {
-	return fmt.Sprintf("[%s:%v]", e.ExistedAlias, e.Err)
-}
-*/

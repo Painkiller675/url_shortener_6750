@@ -6,15 +6,17 @@ import (
 	"log"
 	"net/http"
 	"net/http/pprof"
+	_ "net/http/pprof"
 	"sync"
+
+	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/controller"
 	gzipMW "github.com/Painkiller675/url_shortener_6750/internal/middleware/gzip"
 	"github.com/Painkiller675/url_shortener_6750/internal/middleware/logger"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
-	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
 )
 
 // @title My_URL_Shortener

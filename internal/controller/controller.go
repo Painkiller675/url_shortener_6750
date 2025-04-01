@@ -13,13 +13,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v4"
+	"go.uber.org/zap"
+
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
 	"github.com/Painkiller675/url_shortener_6750/internal/service"
-	"github.com/golang-jwt/jwt/v4"
-	"go.uber.org/zap"
 )
 
 // JobToDelete is used for the asynchronous deleting
@@ -28,12 +29,10 @@ type JobToDelete struct {
 	LsURL  []string
 }
 
-// JSONStructSh is used to unmarshal js request nd send js response in CreateShortURLJSONHandler
+// JSONStruct is used to unmarshal js request nd send js response in CreateShortURLJSONHandler
 type JSONStructSh struct {
 	ShURL string `json:"result"`
 }
-
-// JSONStructOr proxy struct
 type JSONStructOr struct {
 	OrURL string `json:"url"`
 }
