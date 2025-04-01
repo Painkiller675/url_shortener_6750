@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"net/http/pprof"
-	_ "net/http/pprof"
 	"sync"
 
 	"github.com/go-chi/chi/v5"
