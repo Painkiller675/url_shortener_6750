@@ -9,12 +9,16 @@ import (
 	"time"
 )
 
+// TokenExp - JWT token expiration time
 const TokenExp = time.Hour * 3
+
+// SecretKey - secret key for JWT token
 const SecretKey = "supersecretkey"
 
 var version = "4.0" +
 	""
 
+// Options - basic parameters of the server
 type Options struct {
 	BaseURL  string
 	LogLvl   string // flag
@@ -23,19 +27,23 @@ type Options struct {
 	HTTPServer
 }
 
+// HTTPServer - embedded basic parameters of the server
 type HTTPServer struct {
 	Address     string
 	Timeout     time.Duration
 	IdleTimeout time.Duration
 }
 
+// StartOptions - for flags
 var StartOptions Options
 
 // var postgreConStr = fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
-//.
+// .
+//
 //	`localhost`, `postgres`, "12345678", `url_shortener`)
-//var postgreConStr = "user=postgres password=12345678 dbname=url_shortener sslmode=disable"
-
+//
+// var postgreConStr = "user=postgres password=12345678 dbname=url_shortener sslmode=disable"
+// SetConfig sets config via cmline or environment
 func SetConfig() {
 	//var StartOptions Options
 	flag.StringVar(&StartOptions.HTTPServer.Address, "a", "localhost:8080", "HTTP-server address")

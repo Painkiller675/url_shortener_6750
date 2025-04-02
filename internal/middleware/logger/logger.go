@@ -163,6 +163,7 @@ func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
+// WriteHeader writes the header
 func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	// get statusCOde using original http.ResponseWriter
 	r.ResponseWriter.WriteHeader(statusCode)

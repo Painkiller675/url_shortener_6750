@@ -33,6 +33,8 @@ type JobToDelete struct {
 type JSONStructSh struct {
 	ShURL string `json:"result"`
 }
+
+// JSONStructOr proxy struct
 type JSONStructOr struct {
 	OrURL string `json:"url"`
 }
