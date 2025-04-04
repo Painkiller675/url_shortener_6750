@@ -1,20 +1,25 @@
+// Memory package is used to implement a memory database logic in the app.
 package memory
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+
+	"go.uber.org/zap"
+
 	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
-	"go.uber.org/zap"
-	"sync"
 )
 
+// Storage - the instance of memory database type.
 type Storage struct {
 	storage *[]storageWithUserID
 	logger  *zap.Logger
 }
 
+// NewStorage is a constructor of a memory database.
 func NewStorage(logger *zap.Logger) *Storage {
 	logger.Info("MEMORY storage is available")
 	return &Storage{logger: logger, storage: &[]storageWithUserID{}}
@@ -27,7 +32,8 @@ type storageWithUserID struct {
 	mx       *sync.RWMutex     `json:"-"`
 }
 
-func NewStorageWithUserID(userID string, alias string, url string) *storageWithUserID {
+// newStorageWithUserID - constructor (embedding) to implement the user-accessory and delete flags.
+func newStorageWithUserID(userID string, alias string, url string) *storageWithUserID {
 	// 1st init
 	var alurlmap = make(map[string]string)
 	alurlmap[alias] = url
@@ -38,6 +44,7 @@ func NewStorageWithUserID(userID string, alias string, url string) *storageWithU
 
 }
 
+// StoreAlURL is used for storing alias, url and userID in a memory database.
 func (s *Storage) StoreAlURL(_ context.Context, alias string, url string, userID string) (int64, error) {
 	// find needed storage for a specific userID
 	for _, userIDStorage := range *s.storage {
@@ -51,7 +58,7 @@ func (s *Storage) StoreAlURL(_ context.Context, alias string, url string, userID
 	}
 	// new user init
 	// We haven't found the user with userID in the storage => add new userID
-	*(s.storage) = append(*(s.storage), *NewStorageWithUserID(userID, alias, addExistMarker(url)))
+	*(s.storage) = append(*(s.storage), *newStorageWithUserID(userID, alias, addExistMarker(url)))
 	return 1, nil
 
 }
@@ -81,6 +88,7 @@ func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) 
 
 }
 
+// GetDataByUserID gets short URLs and original URLs of a particular user.
 func (s *Storage) GetDataByUserID(ctx context.Context, userID string) (*[]models.UserURLS, error) {
 	if s.storage == nil {
 		er := fmt.Errorf("no data for %v", userID)
@@ -103,6 +111,8 @@ func (s *Storage) GetDataByUserID(ctx context.Context, userID string) (*[]models
 	return nil, er
 
 }
+
+// SaveBatchURL saves the batch of URLs in a memory database.
 func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIDOrSh) (*[]models.JSONBatStructToSerResp, error) {
 	const op = "memory.SaveBatchURL"
 	// create the arrays of structs for response
@@ -123,12 +133,16 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 	return &toResp, nil
 }
 
+// Ping checks if postgreSQL database is available HERE it's a blind plug.
 func (s *Storage) Ping(ctx context.Context) error {
 	return errors.New("DB isn't available")
 }
 
+// GetAlByURL is a blind plug here.
 func (s *Storage) GetAlByURL(ctx context.Context, url string) (string, error) { return "", nil }
 
+// DeleteURLsByUserID deletes some records from the database by UserID (set flag is_deleted in true state)
+// the func doesn't use transaction just to implement  a multi stream concept.
 func (s *Storage) DeleteURLsByUserID(_ context.Context, userID string, aliasToDel []string) error {
 	const op = "memory.DeleteURLsByUserID"
 	if s.storage == nil {
@@ -151,6 +165,8 @@ func (s *Storage) DeleteURLsByUserID(_ context.Context, userID string, aliasToDe
 	// if we don't have such a user in the DB
 	return fmt.Errorf("[%v] user doesn't exist", op)
 }
+
+// CheckIfUserExists checks the existence of a user.
 func (s *Storage) CheckIfUserExists(_ context.Context, userID string) error {
 	const op = "memory.CheckIfUserExists"
 	for _, userIDStorage := range *s.storage {

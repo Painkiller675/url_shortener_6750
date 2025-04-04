@@ -1,3 +1,4 @@
+// Package is a preset zap logger.
 package logger
 
 import (
@@ -6,6 +7,7 @@ import (
 	"time"
 )
 
+// ZapLogger - is a basic zap logger struct.
 type ZapLogger struct {
 	Logger *zap.Logger
 	Level  zap.AtomicLevel //TODO mb use l instead of L
@@ -85,6 +87,7 @@ func (l *ZapLogger) LogMW(next http.Handler) http.Handler {
 	return http.HandleFunc(logFn)
 }
 */
+// LogMW - the main code of a gzip middleware.
 func (l *ZapLogger) LogMW(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer l.Logger.Sync() // TODO: Is it true? How  should I use that??
@@ -160,6 +163,7 @@ func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
+// WriteHeader writes the header
 func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	// get statusCOde using original http.ResponseWriter
 	r.ResponseWriter.WriteHeader(statusCode)

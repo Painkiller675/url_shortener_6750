@@ -1,16 +1,21 @@
+// The package includes common interface for 3 memory options: memory, file, Postgres DB.
+// It also has ChooseStorage function for database type choosing
 package repository
 
 import (
 	"context"
+
+	_ "github.com/jackc/pgx"
+	"go.uber.org/zap"
+
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository/file"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository/memory"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository/pg"
-	_ "github.com/jackc/pgx"
-	"go.uber.org/zap"
 )
 
+// URLStorage describes the methods which are used to implement 3 database types
 type URLStorage interface {
 	//StoreAlURL(ctx context.Context, alias string, url string) error
 	StoreAlURL(ctx context.Context, alias string, url string, userID string) (int64, error)
@@ -23,6 +28,7 @@ type URLStorage interface {
 	CheckIfUserExists(ctx context.Context, userID string) error
 }
 
+// ChooseStorage returns storage example (memory, file or Postgres)
 func ChooseStorage(ctx context.Context, logger *zap.Logger) (URLStorage, error) {
 	// if the database storage
 	if config.StartOptions.DBConStr != "" {

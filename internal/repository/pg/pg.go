@@ -1,3 +1,4 @@
+// Package pg is used for Postgres database logic in the app.
 package pg
 
 import (
@@ -21,12 +22,14 @@ import (
 	"time"
 )
 
+// Storage - the instance of pg database type.
 type Storage struct {
 	conn   *sql.DB
 	logger *zap.Logger
 	// TODO mb use logger here
 }
 
+// NewStorage is a constructor of a pg database.
 func NewStorage(ctx context.Context, conStr string, logger *zap.Logger) (*Storage, error) { // TODO: mb delete error? leave only panic
 	logger.Info("POSTGRES storage is available")
 	//connect to the database
@@ -69,6 +72,7 @@ func NewStorage(ctx context.Context, conStr string, logger *zap.Logger) (*Storag
 	return &Storage{conn: conn}, nil
 }
 
+// StoreAlURL is used for storing alias, url and userID in a postgres database.
 func (s *Storage) StoreAlURL(ctx context.Context, alias string, url string, userID string) (int64, error) {
 	const op = "pg.StoreAlURL"
 	stmt, err := s.conn.Prepare("INSERT INTO url (alias, url, userId) VALUES ($1,$2, $3);")
@@ -100,7 +104,7 @@ if err != nil {
 	return 0, fmt.Errorf("%s: %w", op, err)
 }
 */
-
+// GetOrURLByAl gets original url by its alias.
 func (s *Storage) GetOrURLByAl(ctx context.Context, alias string) (string, error) {
 	const op = "postgreSQL.GetOrURLByAl"
 	// TODO [MENTOR] mb I should put all the queries into the constants?!
@@ -128,6 +132,7 @@ func (s *Storage) GetOrURLByAl(ctx context.Context, alias string) (string, error
 
 }
 
+// GetDataByUserID gets short URLs and original URLs of a particular user.
 func (s *Storage) GetDataByUserID(ctx context.Context, userID string) (*[]models.UserURLS, error) {
 	const op = "pg.GetDataByUserID" // TODO: del slice pointers from the signature ?
 	rows, err := s.conn.QueryContext(ctx, "SELECT alias, url FROM url WHERE userId=$1;", userID)
@@ -164,6 +169,7 @@ func (s *Storage) GetDataByUserID(ctx context.Context, userID string) (*[]models
 	return &userData, nil
 }
 
+// GetAlByURL returns alias using original URL.
 func (s *Storage) GetAlByURL(ctx context.Context, url string) (string, error) {
 	const op = "postgreSQL.GetOrURLByURL"
 	// TODO [MENTOR] mb I should put all the queries into the constants?!
@@ -185,6 +191,7 @@ func (s *Storage) GetAlByURL(ctx context.Context, url string) (string, error) {
 
 }
 
+// Ping checks if postgreSQL database is available.
 func (s *Storage) Ping(ctx context.Context) error {
 	fmt.Println("[INFO] ping from the pg")
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
@@ -197,6 +204,7 @@ func (s *Storage) Ping(ctx context.Context) error {
 
 }
 
+// SaveBatchURL saves the batch of URLs in a postgres database.
 func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIDOrSh) (*[]models.JSONBatStructToSerResp, error) {
 	const op = "pg.SaveBatchURL"
 	// запускаем транзакцию
@@ -258,7 +266,7 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 }
 
 // DeleteURLsByUserID deletes some records from the database by UserID (set flag is_deleted in true state)
-// the func doesn't use transaction just to implement  a multi stream concept
+// the func doesn't use transaction just to implement  a multi stream concept.
 func (s *Storage) DeleteURLsByUserID(ctx context.Context, userID string, aliasesToDel []string) (err error) {
 	const op = "repository.pg.DeleteURLsByUserID"
 	const deleteURLs = "UPDATE url SET isDeleted = true WHERE userId = $1 AND alias = ANY($2)"
@@ -282,6 +290,7 @@ func (s *Storage) DeleteURLsByUserID(ctx context.Context, userID string, aliases
 	return nil
 }
 
+// CheckIfUserExists checks the existence of a user.
 func (s *Storage) CheckIfUserExists(ctx context.Context, userID string) error {
 	const op = "repository.pg.CheckIfUserExists"
 	// TODO [MENTOR] mb I should put all the queries into the constants?!

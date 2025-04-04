@@ -1,3 +1,4 @@
+// Package contains the controller with JWT tocken authorization.
 package controller
 
 import (
@@ -12,15 +13,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v4"
+	"go.uber.org/zap"
+
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
 	"github.com/Painkiller675/url_shortener_6750/internal/service"
-	"github.com/golang-jwt/jwt/v4"
-	"go.uber.org/zap"
 )
 
+// JobToDelete is used for the asynchronous deleting
 type JobToDelete struct {
 	UserID string
 	LsURL  []string
@@ -30,10 +33,13 @@ type JobToDelete struct {
 type JSONStructSh struct {
 	ShURL string `json:"result"`
 }
+
+// JSONStructOr proxy struct
 type JSONStructOr struct {
 	OrURL string `json:"url"`
 }
 
+// Controller - basic struct for the app controller.
 type Controller struct {
 	logger  *zap.Logger
 	storage repository.URLStorage
@@ -41,11 +47,12 @@ type Controller struct {
 	delJobs chan JobToDelete
 }
 
+// New - is a Controller's constructor.
 func New(logger *zap.Logger, storage repository.URLStorage, chJobs chan JobToDelete) *Controller {
 	return &Controller{logger: logger, storage: storage, delJobs: chJobs}
 }
 
-// genJWTTokenString create JWT token and return it in string type
+// genJWTTokenString create JWT token and return it in string type.
 func (c *Controller) genJWTTokenString() (string, string, error) { // TODO [MENTOR]: mb I should replace this func ???
 	// создаём новый токен с алгоритмом подписи HS256 и утверждениями — Claims
 	//usId := string(time.Now().Unix())
@@ -122,6 +129,7 @@ func (c *Controller) setAuthToken(w http.ResponseWriter, tokenStr string) {
 
 }
 
+// DeleteURLSHandler deletes user's data. If user didn't create the data, he can't delete them.
 func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.DeleteURLSHandler"
@@ -203,6 +211,7 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 	}
 }
 
+// CreateShortURLHandler creates the alias of URL in the database and returns it to the user.
 func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.CreateSHortURLHandler"
@@ -286,6 +295,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 	return http.HandlerFunc(fn)
 }
 
+// GetLongURLHandler returns original URL to the user.
 func (c *Controller) GetLongURLHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		idAl := req.PathValue("id") // the cap
@@ -308,6 +318,7 @@ func (c *Controller) GetLongURLHandler() http.HandlerFunc {
 	}
 }
 
+// CreateShortURLJSONHandler creates the URL alias, but it uses only json-format.
 func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.CreateShortURLJSONHandler"
@@ -426,6 +437,7 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 	}
 }
 
+// PingDB checks if the postgres database is available.
 func (c *Controller) PingDB() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		err := c.storage.Ping(req.Context())
@@ -441,6 +453,7 @@ func (c *Controller) PingDB() http.HandlerFunc {
 	}
 }
 
+// CreateShortURLJSONBatchHandler creates aliases for lots of URLs (the batch).
 func (c *Controller) CreateShortURLJSONBatchHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		//check content-type (application/json)
@@ -540,6 +553,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler() http.HandlerFunc {
 	}
 }
 
+// GetUserURLSHandler returns aliases of  a particular user.
 func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.GetUserURLSHandler"

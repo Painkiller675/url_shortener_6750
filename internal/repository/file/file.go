@@ -1,3 +1,4 @@
+// File package is used to implement a file database logic in the app.
 package file
 
 import (
@@ -6,15 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Painkiller675/url_shortener_6750/internal/config"
-	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
-	"github.com/Painkiller675/url_shortener_6750/internal/models"
-	"go.uber.org/zap"
 	"io"
 	"os"
 	"sync"
+
+	"go.uber.org/zap"
+
+	"github.com/Painkiller675/url_shortener_6750/internal/config"
+	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
+	"github.com/Painkiller675/url_shortener_6750/internal/models"
 )
 
+// Storage is a basic struct of a file storage
 type Storage struct {
 	//AlURLStorage map[string]string `json:"url_storage"`
 	AlURLStorage []*storageWithUserID `json:"url_storage"`
@@ -23,6 +27,7 @@ type Storage struct {
 	//mx           *sync.RWMutex     `json:"-"` // TODO pointer or not??
 }
 
+// NewStorage is a constructor of a memory database.
 func NewStorage(filename string, logger *zap.Logger) *Storage {
 	logger.Info("FILE storage is available")
 	//feed data from the file into the memory
@@ -44,6 +49,7 @@ type storageWithUserID struct {
 	mx           *sync.RWMutex     `json:"-"`
 }
 
+// newStorageWithUserID - constructor (embedding) to implement the user-accessory and delete flags.
 func newStorageWithUserID(userID string, alias string, url string) *storageWithUserID {
 	// 1st init
 	var alurlmap = make(map[string]string)
@@ -55,6 +61,7 @@ func newStorageWithUserID(userID string, alias string, url string) *storageWithU
 
 }
 
+// StoreAlURL is used for storing alias, url and userID in a file database.
 func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string, userID string) (int64, error) {
 	// find needed storage for a specific userID
 	for _, userIDStor := range s.AlURLStorage {
@@ -83,7 +90,7 @@ func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string, user
 
 }
 
-// GetDataByUserID - a blind plug
+// GetDataByUserID gets short URLs and original URLs of a particular user.
 func (s *Storage) GetDataByUserID(_ context.Context, userID string) (*[]models.UserURLS, error) {
 	if s.AlURLStorage == nil {
 		er := fmt.Errorf("no data for %v", userID)
@@ -106,14 +113,15 @@ func (s *Storage) GetDataByUserID(_ context.Context, userID string) (*[]models.U
 	return nil, er
 }
 
-// a blind plug to be able to implement the interface
+// Ping is a blind plug to be able to implement the interface. It's used in pg package to ping a postgres database.
 func (s *Storage) Ping(_ context.Context) error {
 	return errors.New("DB isn't available")
 }
 
-// used just in pg option
+// GetAlByURL is used just in pg option, HERE it's a blind plug.
 func (s *Storage) GetAlByURL(_ context.Context, _ string) (string, error) { return "", nil }
 
+// SaveBatchURL saves the batch of URLs in a file database.
 func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatStructIDOrSh) (*[]models.JSONBatStructToSerResp, error) {
 	const op = "file.SaveBatchURL"
 	// create the arrays of structs for response
@@ -133,6 +141,8 @@ func (s *Storage) SaveBatchURL(ctx context.Context, corURLSh *[]models.JSONBatSt
 	}
 	return &toResp, nil
 }
+
+// GetOrURLByAl returns #1st found# original url notwithstanding what user created it
 func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) {
 	const op = "file.GetOrURLByAl"
 	// Если горутина собирается читать данные, то она вызывает метод RLock(). Метод RLock() не
@@ -157,6 +167,8 @@ func (s *Storage) GetOrURLByAl(_ context.Context, alias string) (string, error) 
 
 }
 
+// DeleteURLsByUserID deletes some records from the database by UserID (set flag is_deleted in true state)
+// the func doesn't use transaction just to implement  a multi stream concept.
 func (s *Storage) DeleteURLsByUserID(_ context.Context, userID string, aliasToDel []string) error {
 	const op = "file.DeleteURLsByUserID"
 	if s.AlURLStorage == nil {
@@ -180,6 +192,7 @@ func (s *Storage) DeleteURLsByUserID(_ context.Context, userID string, aliasToDe
 	return fmt.Errorf("[%v] user doesn't exist", op)
 }
 
+// CheckIfUserExists checks the existence of a user.
 func (s *Storage) CheckIfUserExists(_ context.Context, userID string) error {
 	const op = "file.CheckIfUserExists"
 	for _, userIDStorage := range s.AlURLStorage {
@@ -243,6 +256,7 @@ type Producer struct {
 	writer *bufio.Writer
 }
 
+// NewProducer returns the structure with os.File and buffer elements to implement file database then (WRITER).
 func NewProducer(filename string) (*Producer, error) {
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
@@ -256,6 +270,7 @@ func NewProducer(filename string) (*Producer, error) {
 	}, nil
 }
 
+// WriteEvent - flush data into the file database.
 func (p *Producer) WriteEvent(event []*storageWithUserID) error {
 	data, err := json.Marshal(&event)
 	if err != nil {
@@ -276,17 +291,20 @@ func (p *Producer) WriteEvent(event []*storageWithUserID) error {
 	return p.writer.Flush()
 }
 
+// Close closes os.File
 func (p *Producer) Close() error {
 	// закрываем файл
 	return p.file.Close()
 }
 
+// Consumer - the consumer
 type Consumer struct {
 	file *os.File
 	// добавляем reader в Consumer
 	reader *bufio.Reader
 }
 
+// NewConsumer returns the structure with os.File and buffer elements to implement file database then (READER).
 func NewConsumer(filename string) (*Consumer, error) {
 	file, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
@@ -300,7 +318,7 @@ func NewConsumer(filename string) (*Consumer, error) {
 	}, nil
 }
 
-// ReadEvent returns unmarshalled data in the struct
+// ReadEvent returns unmarshalled data in the struct.
 func (c *Consumer) ReadEvent() ([]*storageWithUserID, error) {
 	// читаем данные до символа переноса строки
 	data, err := c.reader.ReadBytes('\n')
@@ -318,6 +336,7 @@ func (c *Consumer) ReadEvent() ([]*storageWithUserID, error) {
 	return event, nil
 }
 
+// Close closes os.File.
 func (c *Consumer) Close() error {
 	return c.file.Close()
 }

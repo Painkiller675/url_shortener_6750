@@ -5,16 +5,35 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"sync"
+
+	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/controller"
 	gzipMW "github.com/Painkiller675/url_shortener_6750/internal/middleware/gzip"
 	"github.com/Painkiller675/url_shortener_6750/internal/middleware/logger"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
-	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
 )
+
+// @title My_URL_Shortener
+// @version 1.0
+// @description backend to short URLs
+
+// @host localhost:8080
+// @BasePath /
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
+
+func init() {
+	go func() {
+		log.Println(http.ListenAndServe(":6060", nil))
+	}()
+}
 
 func main() {
 	// init config
@@ -66,6 +85,11 @@ func main() {
 		r.Post("/api/shorten/batch", c.CreateShortURLJSONBatchHandler())
 		r.Get("/api/user/urls", c.GetUserURLSHandler())
 		r.Delete("/api/user/urls", c.DeleteURLSHandler())
+		r.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+		r.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+		r.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+		r.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+		r.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 
 	})
 	//start server
