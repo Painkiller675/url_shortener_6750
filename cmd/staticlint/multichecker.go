@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/Painkiller675/url_shortener_6750/internal/lib/testLint"
+	"github.com/Painkiller675/url_shortener_6750/internal/lib/testlint"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 	"golang.org/x/tools/go/analysis/passes/printf"
@@ -36,7 +36,7 @@ func main() {
 		printf.Analyzer,
 		shadow.Analyzer,
 		structtag.Analyzer,
-		testLint.ErrExitMainCheckAnalyzer,
+		testlint.ErrExitMainCheckAnalyzer,
 	)
 
 }

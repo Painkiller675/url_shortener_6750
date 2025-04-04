@@ -1,5 +1,5 @@
 // Package exitmainchecker contains check for usage of exit function in main function
-package testLint
+package testlint
 
 import (
 	"go/ast"
@@ -8,6 +8,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+// ErrExitMainCheckAnalyzer - an object of analysis.Analyzer type to create a custom analyzer for the multichecker
 var ErrExitMainCheckAnalyzer = &analysis.Analyzer{
 	Name: "exitMainCheck",
 	Doc:  "check call os.Exit in func main() of package main",
