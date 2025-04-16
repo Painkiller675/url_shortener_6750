@@ -29,6 +29,12 @@ import (
 // @in header
 // @name Authorization
 
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
 func init() {
 	go func() {
 		log.Println(http.ListenAndServe(":6060", nil))
@@ -92,11 +98,16 @@ func main() {
 		r.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 
 	})
+	// to print global values
+	// go run -ldflags "-X main.buildVersion=v1.0.1 -X 'main.buildDate=$(date +'%Y/%m/%d %H:%M:%S')'
+	//-X main.buildCommit=iter20" main.go
+	fmt.Printf("Build version: %s\n Build date: %s\n Build commit: %s\n\n", buildVersion, buildDate, buildCommit)
 	//start server
 	l.Logger.Info("Running server", zap.String("address", config.StartOptions.HTTPServer.Address))
 	if err := http.ListenAndServe(config.StartOptions.HTTPServer.Address, r); err != nil {
 		panic(err)
 	}
+
 	wg.Wait() // gracefull shutdown
 }
 
