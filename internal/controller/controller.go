@@ -198,7 +198,7 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 		// c.wg.Add(1) // todo define wait group in main and bring it to controller
 		//
 		// fill the channel to delete urls
-		go func() {
+		go func() { // TODO: прокинруть сюда wg для GS и сделать тут wg.Add(1)
 			c.delJobs <- JobToDelete{UserID: userID, LsURL: aliasesToDel}
 		}()
 

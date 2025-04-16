@@ -3,9 +3,11 @@
 package config
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -20,11 +22,22 @@ var version = "4.0" +
 
 // Options - basic parameters of the server
 type Options struct {
-	BaseURL  string
-	LogLvl   string // flag
-	Filename string
-	DBConStr string
+	BaseURL      string
+	LogLvl       string // flag
+	Filename     string
+	DBConStr     string
+	HTTPSEnabled bool
+	JSONConfig   string
 	HTTPServer
+}
+
+// ummarshalOptions - is used to unmarshal json config file
+type ummarshalOptions struct {
+	ServerAddress string `json:"server_address"`
+	BaseURL       string `json:"base_url"`
+	Filename      string `json:"file_storage_path"`
+	DBConStr      string `json:"database_dsn"`
+	HTTPSEnabled  bool   `json:"enable_https"`
 }
 
 // HTTPServer - embedded basic parameters of the server
@@ -43,14 +56,17 @@ var StartOptions Options
 //	`localhost`, `postgres`, "12345678", `url_shortener`)
 //
 // var postgreConStr = "user=postgres password=12345678 dbname=url_shortener sslmode=disable"
+
 // SetConfig sets config via cmline or environment
 func SetConfig() {
 	//var StartOptions Options
-	flag.StringVar(&StartOptions.HTTPServer.Address, "a", "localhost:8080", "HTTP-server address")
-	flag.StringVar(&StartOptions.BaseURL, "b", "http://localhost:8080/", "base URL")
+	flag.StringVar(&StartOptions.HTTPServer.Address, "a", "", "HTTP-server address")
+	flag.StringVar(&StartOptions.BaseURL, "b", "", "base URL")
 	flag.StringVar(&StartOptions.LogLvl, "l", "info", "log level")
 	flag.StringVar(&StartOptions.Filename, "f", "", "storage filename")
 	flag.StringVar(&StartOptions.DBConStr, "d", "", "DSN (for database)")
+	flag.BoolVar(&StartOptions.HTTPSEnabled, "s", true, "to deactivate https mode use -s false ")
+	flag.StringVar(&StartOptions.JSONConfig, "c", "config.json", "path to a json config")
 	// set version in usage output
 	flag.Usage = func() {
 		// TODO: How should I handle this error the best???
@@ -65,6 +81,7 @@ func SetConfig() {
 	if envRunAddr := os.Getenv("SERVER_ADDRESS"); envRunAddr != "" {
 		StartOptions.HTTPServer.Address = envRunAddr
 	}
+
 	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
 		StartOptions.BaseURL = envBaseURL
 	}
@@ -77,4 +94,47 @@ func SetConfig() {
 	if envDsnDB := os.Getenv("DATABASE_DSN"); envDsnDB != "" {
 		StartOptions.DBConStr = envDsnDB
 	}
+	if envHTTPSEnabled := os.Getenv("ENABLE_HTTPS"); envHTTPSEnabled != "" {
+		var err error
+		StartOptions.HTTPSEnabled, err = strconv.ParseBool(envHTTPSEnabled) // TODO: is it OK?
+		if err != nil {
+			panic(err)
+		}
+	}
+	if envJSONConfig := os.Getenv("CONFIG"); envJSONConfig != "" {
+		StartOptions.JSONConfig = envJSONConfig
+	}
+
+	if StartOptions.JSONConfig != "" {
+		// try to read config data from json config file
+		var unmOptions ummarshalOptions
+		file, err := os.ReadFile(StartOptions.JSONConfig)
+		if err != nil {
+			panic(err)
+			return
+		}
+		err = json.Unmarshal(file, &unmOptions)
+		if err != nil {
+			panic(err)
+			return
+		}
+		// try to reassign config parameters (from json)
+		if StartOptions.HTTPServer.Address == "" {
+			StartOptions.HTTPServer.Address = unmOptions.ServerAddress
+		}
+		if StartOptions.BaseURL == "" { // TODO: is it ok?
+			StartOptions.BaseURL = unmOptions.BaseURL
+		}
+		if StartOptions.Filename == "" {
+			StartOptions.Filename = unmOptions.Filename
+		}
+		if StartOptions.DBConStr == "" {
+			StartOptions.DBConStr = unmOptions.DBConStr
+		}
+		if StartOptions.HTTPSEnabled { // TODO: HOW TO HANDLE IT ????!
+			StartOptions.HTTPSEnabled = unmOptions.HTTPSEnabled
+		}
+
+	}
+
 }

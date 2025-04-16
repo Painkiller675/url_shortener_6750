@@ -3,19 +3,19 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"net/http"
-	"net/http/pprof"
-	"sync"
-
-	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
-
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/controller"
 	gzipMW "github.com/Painkiller675/url_shortener_6750/internal/middleware/gzip"
 	"github.com/Painkiller675/url_shortener_6750/internal/middleware/logger"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
+	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+	"log"
+	"net/http"
+	"net/http/pprof"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // @title My_URL_Shortener
@@ -29,6 +29,9 @@ import (
 // @in header
 // @name Authorization
 
+// to print global values
+// go run -ldflags "-X main.buildVersion=v1.0.1 -X 'main.buildDate=$(date +'%Y/%m/%d %H:%M:%S')'
+// -X main.buildCommit=iter20" main.go
 var (
 	buildVersion string
 	buildDate    string
@@ -36,6 +39,7 @@ var (
 )
 
 func init() {
+	// is used for profiling and documentation
 	go func() {
 		log.Println(http.ListenAndServe(":6060", nil))
 	}()
@@ -71,7 +75,7 @@ func main() {
 	go deleteURL(s, chanJobs)
 
 	// create a wait group
-	var wg sync.WaitGroup // TODO bring it to controller
+	//var wg sync.WaitGroup // TODO bring it to controller
 	// init controller
 	c := controller.New(l.Logger, s, chanJobs) //
 
@@ -98,23 +102,48 @@ func main() {
 		r.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 
 	})
-	// to print global values
-	// go run -ldflags "-X main.buildVersion=v1.0.1 -X 'main.buildDate=$(date +'%Y/%m/%d %H:%M:%S')'
-	//-X main.buildCommit=iter20" main.go
-	fmt.Printf("Build version: %s\n Build date: %s\n Build commit: %s\n\n", buildVersion, buildDate, buildCommit)
-	//start server
-	l.Logger.Info("Running server", zap.String("address", config.StartOptions.HTTPServer.Address))
-	if err := http.ListenAndServe(config.StartOptions.HTTPServer.Address, r); err != nil {
-		panic(err)
-	}
+	// graceful shutdown
+	var srv = http.Server{Addr: config.StartOptions.HTTPServer.Address}
+	sigChan := make(chan os.Signal, 2)
+	idleConnsClosed := make(chan struct{}) // to notice the main thread that connections were closed
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, os.Interrupt)
+	go func() {
+		<-sigChan
+		// TODO : или так gracefully идея: просто поставить таймер на 10 секунд дав удалиться до конца всему
+		if err := srv.Shutdown(ctx); err != nil {
+			// ошибки закрытия Listener
+			log.Printf("HTTP server Shutdown: %v", err)
+		}
+		close(idleConnsClosed)
+	}()
 
-	wg.Wait() // gracefull shutdown
+	fmt.Printf("Build version: %s\n Build date: %s\n Build commit: %s\n\n", buildVersion, buildDate, buildCommit)
+	//start server, choose http or https
+	if config.StartOptions.HTTPSEnabled {
+		l.Logger.Info("Running HTTPS server", zap.String("address", config.StartOptions.HTTPServer.Address))
+		if err := http.ListenAndServeTLS(":8080", "../../internal/cert/localhost.pem", "../../internal/cert/localhost-key.pem", r); err != nil {
+			panic(err) // TODO: Как решить вопрос с путями к сертификатам
+		}
+	} else { // start http server
+		l.Logger.Info("Running HTTP server", zap.String("address", config.StartOptions.HTTPServer.Address))
+		if err := http.ListenAndServe(config.StartOptions.HTTPServer.Address, r); err != nil {
+			panic(err)
+		}
+	}
+	<-idleConnsClosed
+	// TODO: close files, pg connections etc
+	fmt.Println("Shutting down server GRACEFULLY")
+	// TODO: ещё идея, пробросить wg в controller и там делать add
+	//wg.Wait() // gracefull shutdown TODO: wg.Add???!
 }
 
+// TODO: либо в горутине запускать сервак и после этого ловить сигнал ..
 func deleteURL(s repository.URLStorage, jobs chan controller.JobToDelete) {
-	for job := range jobs {
+	for job := range jobs { // waiting for data in buffered channel
 		if err := s.DeleteURLsByUserID(context.Background(), job.UserID, job.LsURL); err != nil {
 			fmt.Println("[ERROR]", zap.Error(err)) // TODO [MENTOR]: how to go it up? is it necessary?
 		}
+		//TODO: for GS Сделать тут wg.Done()
+
 	}
 }
