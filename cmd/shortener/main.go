@@ -15,6 +15,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
@@ -68,16 +69,19 @@ func main() {
 	}
 
 	// init jobs for deleting
-	chanJobs := make(chan controller.JobToDelete, 100)
+	var wg1 sync.WaitGroup
+	var wg2 sync.WaitGroup
+	chanJobs := make(chan controller.JobToDelete, 100) // смысла нет в БУФЕРЕ нём ибо узкое горлышко - обращение к БД
 	defer close(chanJobs)
 
 	// launch the delete goroutine
-	go deleteURL(s, chanJobs)
+	wg2.Add(1)
+	go deleteURL(&wg2, s, chanJobs)
 
 	// create a wait group
 	//var wg sync.WaitGroup // TODO bring it to controller
 	// init controller
-	c := controller.New(l.Logger, s, chanJobs) //
+	c := controller.New(l.Logger, s, chanJobs, &wg1) //
 
 	// init router
 	r := chi.NewRouter()
@@ -110,8 +114,9 @@ func main() {
 	go func() {
 		<-sigChan
 		// TODO : или так gracefully идея: просто поставить таймер на 10 секунд дав удалиться до конца всему
-		if err := srv.Shutdown(ctx); err != nil {
+		if err := srv.Shutdown(ctx); err != nil { // дожидается отработки всех хэндлеров, перестаёт слушать на порту
 			// ошибки закрытия Listener
+
 			log.Printf("HTTP server Shutdown: %v", err)
 		}
 		close(idleConnsClosed)
@@ -119,26 +124,39 @@ func main() {
 
 	fmt.Printf("Build version: %s\n Build date: %s\n Build commit: %s\n\n", buildVersion, buildDate, buildCommit)
 	//start server, choose http or https
-	if config.StartOptions.HTTPSEnabled {
-		l.Logger.Info("Running HTTPS server", zap.String("address", config.StartOptions.HTTPServer.Address))
-		if err := http.ListenAndServeTLS(":8080", "../../internal/cert/localhost.pem", "../../internal/cert/localhost-key.pem", r); err != nil {
-			panic(err) // TODO: Как решить вопрос с путями к сертификатам
+	go func() {
+		if config.StartOptions.HTTPSEnabled {
+
+			l.Logger.Info("Running HTTPS server", zap.String("address", config.StartOptions.HTTPServer.Address))
+			if err := http.ListenAndServeTLS(":8080", "../../internal/cert/localhost.pem", "../../internal/cert/localhost-key.pem", r); err != nil {
+				panic(err) // TODO: Как решить вопрос с путями к сертификатам
+			}
+		} else { // start http server
+			l.Logger.Info("Running HTTP server", zap.String("address", config.StartOptions.HTTPServer.Address))
+			if err := http.ListenAndServe(config.StartOptions.HTTPServer.Address, r); err != nil {
+				panic(err)
+			}
 		}
-	} else { // start http server
-		l.Logger.Info("Running HTTP server", zap.String("address", config.StartOptions.HTTPServer.Address))
-		if err := http.ListenAndServe(config.StartOptions.HTTPServer.Address, r); err != nil {
-			panic(err)
-		}
-	}
+	}()
+
 	<-idleConnsClosed
+	wg1.Wait() // ВСЕ ГОРУТИНЫ ХЭНДЛЕРОВ ОТРАБОТАЛИ
+	close(chanJobs)
+	wg2.Wait()
+	// TODO:  make close func in DB and close the database = > закрыть
+
 	// TODO: close files, pg connections etc
 	fmt.Println("Shutting down server GRACEFULLY")
 	// TODO: ещё идея, пробросить wg в controller и там делать add
 	//wg.Wait() // gracefull shutdown TODO: wg.Add???!
 }
 
+// 1 гасим веб сервер
+// в хэндлер wg пробросить и wg.Add и ждать
+// далее после wg.wait закрыть канал но в нём могут быть данные => вторую wg ждём для go deleteURL(s, chanJobs)
 // TODO: либо в горутине запускать сервак и после этого ловить сигнал ..
-func deleteURL(s repository.URLStorage, jobs chan controller.JobToDelete) {
+func deleteURL(wg *sync.WaitGroup, s repository.URLStorage, jobs chan controller.JobToDelete) {
+	defer wg.Done()
 	for job := range jobs { // waiting for data in buffered channel
 		if err := s.DeleteURLsByUserID(context.Background(), job.UserID, job.LsURL); err != nil {
 			fmt.Println("[ERROR]", zap.Error(err)) // TODO [MENTOR]: how to go it up? is it necessary?

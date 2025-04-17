@@ -65,7 +65,7 @@ func SetConfig() {
 	flag.StringVar(&StartOptions.LogLvl, "l", "info", "log level")
 	flag.StringVar(&StartOptions.Filename, "f", "", "storage filename")
 	flag.StringVar(&StartOptions.DBConStr, "d", "", "DSN (for database)")
-	flag.BoolVar(&StartOptions.HTTPSEnabled, "s", true, "to deactivate https mode use -s false ")
+	flag.BoolVar(&StartOptions.HTTPSEnabled, "s", false, "to deactivate https mode use -s false ")
 	flag.StringVar(&StartOptions.JSONConfig, "c", "config.json", "path to a json config")
 	// set version in usage output
 	flag.Usage = func() {
@@ -94,12 +94,12 @@ func SetConfig() {
 	if envDsnDB := os.Getenv("DATABASE_DSN"); envDsnDB != "" {
 		StartOptions.DBConStr = envDsnDB
 	}
-	if envHTTPSEnabled := os.Getenv("ENABLE_HTTPS"); envHTTPSEnabled != "" {
+	if envHTTPSEnabled := os.Getenv("ENABLE_HTTPS"); envHTTPSEnabled != "" { // TODO use  os.LookupEnv() use bool value
 		var err error
-		StartOptions.HTTPSEnabled, err = strconv.ParseBool(envHTTPSEnabled) // TODO: is it OK?
+		StartOptions.HTTPSEnabled, err = strconv.ParseBool(envHTTPSEnabled) // TODO:
 		if err != nil {
 			panic(err)
-		}
+		} // TODO: лучше вернуть ошибку и сделать лог фатал в main
 	}
 	if envJSONConfig := os.Getenv("CONFIG"); envJSONConfig != "" {
 		StartOptions.JSONConfig = envJSONConfig
@@ -132,6 +132,8 @@ func SetConfig() {
 			StartOptions.DBConStr = unmOptions.DBConStr
 		}
 		if StartOptions.HTTPSEnabled { // TODO: HOW TO HANDLE IT ????!
+			// описать как ссылку на бул HTTPSEnabled (в енв ничего нет не заполняю то, есди в флагах ничего нет не заполняю)
+			//или сразу заполнить из json а потом сверху накладывать
 			StartOptions.HTTPSEnabled = unmOptions.HTTPSEnabled
 		}
 
