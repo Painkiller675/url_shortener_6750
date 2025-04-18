@@ -72,6 +72,11 @@ func NewStorage(ctx context.Context, conStr string, logger *zap.Logger) (*Storag
 	return &Storage{conn: conn}, nil
 }
 
+// Close is used to close database connection (during the graceful shutdown)
+func (s *Storage) Close() error {
+	return s.conn.Close()
+}
+
 // StoreAlURL is used for storing alias, url and userID in a postgres database.
 func (s *Storage) StoreAlURL(ctx context.Context, alias string, url string, userID string) (int64, error) {
 	const op = "pg.StoreAlURL"

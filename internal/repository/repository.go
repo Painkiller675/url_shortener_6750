@@ -26,6 +26,7 @@ type URLStorage interface {
 	GetDataByUserID(ctx context.Context, userID string) (*[]models.UserURLS, error)
 	DeleteURLsByUserID(ctx context.Context, userID string, aliasToDel []string) error
 	CheckIfUserExists(ctx context.Context, userID string) error
+	Close() error
 }
 
 // ChooseStorage returns storage example (memory, file or Postgres)

@@ -61,6 +61,11 @@ func newStorageWithUserID(userID string, alias string, url string) *storageWithU
 
 }
 
+// Close is a blind plug here cause we close file in save & get functions
+func (s *Storage) Close() error {
+	return nil
+}
+
 // StoreAlURL is used for storing alias, url and userID in a file database.
 func (s *Storage) StoreAlURL(_ context.Context, alias string, orURL string, userID string) (int64, error) {
 	// find needed storage for a specific userID
