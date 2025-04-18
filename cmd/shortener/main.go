@@ -71,10 +71,11 @@ func main() {
 	// init jobs for deleting
 	var wg1 sync.WaitGroup
 	var wg2 sync.WaitGroup
-	chanJobs := make(chan controller.JobToDelete, 100) // смысла нет в БУФЕРЕ нём ибо узкое горлышко - обращение к БД
+	chanJobs := make(chan controller.JobToDelete, 100) // смысла нет в БУФЕРЕ, если клиентов >100
+	// ибо всё равно узкое горлышко - обращение к БД и там все эти горутины всё равно встанут в очередь
 	defer close(chanJobs)
 
-	// launch the delete goroutine
+	// launch the deleting goroutine
 	wg2.Add(1)
 	go deleteURL(&wg2, s, chanJobs)
 
@@ -107,13 +108,13 @@ func main() {
 
 	})
 	// graceful shutdown
-	var srv = http.Server{Addr: config.StartOptions.HTTPServer.Address}
+	var srv = http.Server{Addr: config.StartOptions.HTTPServer.Address, Handler: r}
 	sigChan := make(chan os.Signal, 2)
 	idleConnsClosed := make(chan struct{}) // to notice the main thread that connections were closed
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, os.Interrupt)
 	go func() {
 		<-sigChan
-		// TODO : или так gracefully идея: просто поставить таймер на 10 секунд дав удалиться до конца всему
+		fmt.Println("shutting down server gracefully..")
 		if err := srv.Shutdown(ctx); err != nil { // дожидается отработки всех хэндлеров, перестаёт слушать на порту
 			// ошибки закрытия Listener
 
@@ -125,30 +126,33 @@ func main() {
 	fmt.Printf("Build version: %s\n Build date: %s\n Build commit: %s\n\n", buildVersion, buildDate, buildCommit)
 	//start server, choose http or https
 	go func() {
+		//var srv = http.Server{Addr:config.StartOptions.HTTPServer.Address, Handler: r} // create the server
+
 		if config.StartOptions.HTTPSEnabled {
 
 			l.Logger.Info("Running HTTPS server", zap.String("address", config.StartOptions.HTTPServer.Address))
-			if err := http.ListenAndServeTLS(":8080", "../../internal/cert/localhost.pem", "../../internal/cert/localhost-key.pem", r); err != nil {
-				panic(err) // TODO: Как решить вопрос с путями к сертификатам
+			if err := srv.ListenAndServeTLS(config.StartOptions.CertFile, config.StartOptions.KeyFile); err != nil {
+				panic(err)
 			}
 		} else { // start http server
 			l.Logger.Info("Running HTTP server", zap.String("address", config.StartOptions.HTTPServer.Address))
-			if err := http.ListenAndServe(config.StartOptions.HTTPServer.Address, r); err != nil {
+			if err := srv.ListenAndServe(); err != nil {
 				panic(err)
 			}
 		}
 	}()
 
 	<-idleConnsClosed
+
 	wg1.Wait() // ВСЕ ГОРУТИНЫ ХЭНДЛЕРОВ ОТРАБОТАЛИ
 	close(chanJobs)
-	wg2.Wait()
-	// TODO:  make close func in DB and close the database = > закрыть
+	wg2.Wait() // ждём отработки горутины непосредственного удаления (если что-то ещё осталось в буфере)
+	// TODO:  how to handle error here????
+	if err := s.Close(); err != nil {
+		log.Fatal("cannot close storage connection", zap.Error(err))
+	}
+	fmt.Println("server was gracefully stopped")
 
-	// TODO: close files, pg connections etc
-	fmt.Println("Shutting down server GRACEFULLY")
-	// TODO: ещё идея, пробросить wg в controller и там делать add
-	//wg.Wait() // gracefull shutdown TODO: wg.Add???!
 }
 
 // 1 гасим веб сервер

@@ -28,6 +28,8 @@ type Options struct {
 	DBConStr     string
 	HTTPSEnabled bool
 	JSONConfig   string
+	CertFile     string
+	KeyFile      string
 	HTTPServer
 }
 
@@ -67,6 +69,8 @@ func SetConfig() {
 	flag.StringVar(&StartOptions.DBConStr, "d", "", "DSN (for database)")
 	flag.BoolVar(&StartOptions.HTTPSEnabled, "s", false, "to deactivate https mode use -s false ")
 	flag.StringVar(&StartOptions.JSONConfig, "c", "config.json", "path to a json config")
+	flag.StringVar(&StartOptions.CertFile, "certFile", "../../internal/cert/localhost.pem", "tls certificate file path")
+	flag.StringVar(&StartOptions.KeyFile, "keyFile", "../../internal/cert/localhost-key.pem", "tls key file path")
 	// set version in usage output
 	flag.Usage = func() {
 		// TODO: How should I handle this error the best???
@@ -76,6 +80,35 @@ func SetConfig() {
 
 	flag.Parse()
 	// TODO: How do that using caarlos0/env in the best way?
+
+	if envJSONConfig := os.Getenv("CONFIG"); envJSONConfig != "" {
+		StartOptions.JSONConfig = envJSONConfig
+	}
+	if StartOptions.JSONConfig != "" {
+		// try to read config data from json config file
+		var unmOptions ummarshalOptions
+		file, err := os.ReadFile(StartOptions.JSONConfig)
+		if err != nil {
+			panic(err)
+			return
+		}
+		err = json.Unmarshal(file, &unmOptions)
+		if err != nil {
+			panic(err)
+			return
+		}
+		// assign config parameters (from json)
+		StartOptions.HTTPServer.Address = unmOptions.ServerAddress
+		StartOptions.BaseURL = unmOptions.BaseURL
+		StartOptions.Filename = unmOptions.Filename
+		StartOptions.DBConStr = unmOptions.DBConStr
+		StartOptions.HTTPSEnabled = unmOptions.HTTPSEnabled
+	}
+	// if flags are set => reassigning
+	if isFlagPassed("a") {
+		//StartOptions.HTTPServer.Address =
+		// TODO: handle it
+	}
 
 	//ENV values (if set => use them else use   flags)
 	if envRunAddr := os.Getenv("SERVER_ADDRESS"); envRunAddr != "" {
@@ -101,42 +134,16 @@ func SetConfig() {
 			panic(err)
 		} // TODO: лучше вернуть ошибку и сделать лог фатал в main
 	}
-	if envJSONConfig := os.Getenv("CONFIG"); envJSONConfig != "" {
-		StartOptions.JSONConfig = envJSONConfig
-	}
 
-	if StartOptions.JSONConfig != "" {
-		// try to read config data from json config file
-		var unmOptions ummarshalOptions
-		file, err := os.ReadFile(StartOptions.JSONConfig)
-		if err != nil {
-			panic(err)
-			return
-		}
-		err = json.Unmarshal(file, &unmOptions)
-		if err != nil {
-			panic(err)
-			return
-		}
-		// try to reassign config parameters (from json)
-		if StartOptions.HTTPServer.Address == "" {
-			StartOptions.HTTPServer.Address = unmOptions.ServerAddress
-		}
-		if StartOptions.BaseURL == "" { // TODO: is it ok?
-			StartOptions.BaseURL = unmOptions.BaseURL
-		}
-		if StartOptions.Filename == "" {
-			StartOptions.Filename = unmOptions.Filename
-		}
-		if StartOptions.DBConStr == "" {
-			StartOptions.DBConStr = unmOptions.DBConStr
-		}
-		if StartOptions.HTTPSEnabled { // TODO: HOW TO HANDLE IT ????!
-			// описать как ссылку на бул HTTPSEnabled (в енв ничего нет не заполняю то, есди в флагах ничего нет не заполняю)
-			//или сразу заполнить из json а потом сверху накладывать
-			StartOptions.HTTPSEnabled = unmOptions.HTTPSEnabled
-		}
+}
 
-	}
-
+// isFlagPassed is used to figure out if console flag was set
+func isFlagPassed(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
 }
