@@ -48,7 +48,9 @@ func init() {
 
 func main() {
 	// init config
-	config.SetConfig()
+	if err := config.SetConfig(); err != nil {
+		log.Fatal(err)
+	}
 
 	// init logger
 	l, err := logger.NewZapLogger(config.StartOptions.LogLvl)
