@@ -66,7 +66,7 @@ var UnmOptions ummarshalOptions
 func SetConfig() error {
 	//var StartOptions Options
 	flag.StringVar(&StartOptions.HTTPServer.Address, "a", ":8080", "HTTP-server address")
-	flag.StringVar(&StartOptions.BaseURL, "b", "", "base URL")
+	flag.StringVar(&StartOptions.BaseURL, "b", "http://localhost:8080/", "base URL")
 	flag.StringVar(&StartOptions.LogLvl, "l", "info", "log level")
 	flag.StringVar(&StartOptions.Filename, "f", "", "storage filename")
 	flag.StringVar(&StartOptions.DBConStr, "d", "", "DSN (for database)")
