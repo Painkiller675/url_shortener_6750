@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/controller"
@@ -134,12 +135,17 @@ func main() {
 
 			l.Logger.Info("Running HTTPS server", zap.String("address", config.StartOptions.HTTPServer.Address))
 			if err := srv.ListenAndServeTLS(config.StartOptions.CertFile, config.StartOptions.KeyFile); err != nil {
-				panic(err)
+				if !errors.Is(err, http.ErrServerClosed) { // если завершился не по штатному шатдауну
+					panic(err)
+				}
 			}
 		} else { // start http server
 			l.Logger.Info("Running HTTP server", zap.String("address", config.StartOptions.HTTPServer.Address))
 			if err := srv.ListenAndServe(); err != nil {
-				panic(err)
+
+				if !errors.Is(err, http.ErrServerClosed) { // если завершился не по штатному шатдауну
+					panic(err)
+				}
 			}
 		}
 	}()
