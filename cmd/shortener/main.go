@@ -76,7 +76,7 @@ func main() {
 	var wg2 sync.WaitGroup
 	chanJobs := make(chan controller.JobToDelete, 100) // смысла нет в БУФЕРЕ, если клиентов >100
 	// ибо всё равно узкое горлышко - обращение к БД и там все эти горутины всё равно встанут в очередь
-	defer close(chanJobs)
+	//defer close(chanJobs)
 
 	// launch the deleting goroutine
 	wg2.Add(1)
