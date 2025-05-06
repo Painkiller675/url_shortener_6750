@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -128,6 +129,73 @@ func (c *Controller) setAuthToken(w http.ResponseWriter, tokenStr string) {
 		HttpOnly: true,
 		Expires:  time.Now().Add(config.TokenExp),
 	})
+
+}
+
+// url -X GET --header "X-Real-IP: 192.168.0.19" -i http://localhost:8080/api/internal/stats
+//
+// GetStats is used to get the statistics namely the number of urls and users in the database
+func (c *Controller) GetStats() http.HandlerFunc {
+	return func(res http.ResponseWriter, r *http.Request) {
+		const op = "controller.GetStats"
+		// parse to get user's IP
+		ipX := r.Header.Get("X-Real-IP")
+		if ipX == "" {
+			c.logger.Info("X-Real-IP is empty")
+			res.WriteHeader(http.StatusForbidden)
+			return
+		}
+		ip, _, err := net.ParseCIDR(ipX)
+		if err != nil {
+			c.logger.Info("Invalid IP address", zap.String("ip", ipX))
+			res.WriteHeader(http.StatusForbidden)
+			return
+		}
+		// get the subnet from config/flag/env
+		_, sub, err := net.ParseCIDR(config.StartOptions.TrustedSubnet)
+		if err != nil {
+			c.logger.Info("Invalid Trusted Subnet", zap.String("subnet", config.StartOptions.TrustedSubnet))
+			res.WriteHeader(http.StatusForbidden)
+			return
+		}
+		// parse the request ip  (convert it to []byte)
+		ipB := net.ParseIP(ip.String())
+		// check if our trusted subnet contains the ip
+		if !sub.Contains(ipB) {
+			c.logger.Info("Subnet doesn't contain user IP", zap.String("ip", ipX))
+			res.WriteHeader(http.StatusForbidden)
+			return
+		}
+		// get needed statistics from the database
+		urlsCount, usersCount, err := c.storage.GetStats(r.Context())
+		if err != nil {
+			c.logger.Info("Error getting stats", zap.Error(err))
+			res.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		/////// mold the request with the statistics ////////
+		// create and fill an auxiliary struct
+		var proxyStatStToMash models.Stats
+		proxyStatStToMash.Users = usersCount
+		proxyStatStToMash.URLs = urlsCount
+		// marshal data for response
+		marData, err := json.Marshal(proxyStatStToMash)
+		if err != nil {
+			c.logger.Error("[ERROR]", zap.Error(err))
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// headers molding
+		res.Header().Set("Content-Type", "application/json")
+		//res.Header().Set("Content-Length", strconv.Itoa(len(marData)))
+		res.WriteHeader(http.StatusOK) // 200
+		_, err = res.Write(marData)
+		if err != nil {
+			c.logger.Error("[ERROR]", zap.Error(err))
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
 
 }
 

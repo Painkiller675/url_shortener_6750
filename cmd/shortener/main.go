@@ -103,6 +103,7 @@ func main() {
 		r.Post("/api/shorten/batch", c.CreateShortURLJSONBatchHandler())
 		r.Get("/api/user/urls", c.GetUserURLSHandler())
 		r.Delete("/api/user/urls", c.DeleteURLSHandler())
+		r.Get("/api/internal/stats", c.GetStats())
 		r.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
 		r.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
 		r.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
