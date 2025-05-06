@@ -49,6 +49,18 @@ func (s *Storage) Close() error {
 	return nil
 }
 
+// GetStats returns the number of urls (with repeats and the number of users without repeats from the database)
+func (s *Storage) GetStats(_ context.Context) (urls int, users int, err error) {
+	var urlsNum int
+
+	for _, userIDStor := range *s.storage {
+		urlsNum += len(userIDStor.alURLMap)
+	}
+	usersNum := len(*s.storage)
+
+	return urlsNum, usersNum, nil
+}
+
 // StoreAlURL is used for storing alias, url and userID in a memory database.
 func (s *Storage) StoreAlURL(_ context.Context, alias string, url string, userID string) (int64, error) {
 	// find needed storage for a specific userID

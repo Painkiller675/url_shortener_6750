@@ -25,6 +25,7 @@ type URLStorage interface {
 	GetAlByURL(ctx context.Context, url string) (string, error)
 	GetDataByUserID(ctx context.Context, userID string) (*[]models.UserURLS, error)
 	DeleteURLsByUserID(ctx context.Context, userID string, aliasToDel []string) error
+	GetStats(ctx context.Context) (urls int, users int, err error)
 	CheckIfUserExists(ctx context.Context, userID string) error
 	Close() error
 }

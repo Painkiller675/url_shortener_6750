@@ -77,6 +77,35 @@ func (s *Storage) Close() error {
 	return s.conn.Close()
 }
 
+// GetStats returns the number of urls (with repeats and the number of users without repeats from the database)
+func (s *Storage) GetStats(ctx context.Context) (urls int, users int, err error) {
+	const op = "pg..GetStats"
+	var urlsCount int
+	// counting the number of shorted urls in the database (with repeats)
+	URLsWithRepeats := s.conn.QueryRowContext(
+		ctx,
+		"SELECT COUNT(alias) FROM url")
+
+	err = URLsWithRepeats.Scan(&urlsCount)
+	if err != nil {
+		s.logger.Error(op, zap.Error(err))
+		return 0, 0, err
+	}
+	// count the number of users in the database (without REPEATS?) // TODO: check the repeats?
+	var usersCount int
+	usersNum := s.conn.QueryRowContext(
+		ctx,
+		"SELECT COUNT(DISTINCT user_Id) FROM url")
+	err = usersNum.Scan(&usersCount)
+	if err != nil {
+		s.logger.Error(op, zap.Error(err))
+		return 0, 0, err
+	}
+
+	return urlsCount, usersCount, err
+
+}
+
 // StoreAlURL is used for storing alias, url and userID in a postgres database.
 func (s *Storage) StoreAlURL(ctx context.Context, alias string, url string, userID string) (int64, error) {
 	const op = "pg.StoreAlURL"

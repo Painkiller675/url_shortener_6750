@@ -22,14 +22,15 @@ var version = "4.0" +
 
 // Options - basic parameters of the server
 type Options struct {
-	BaseURL      string
-	LogLvl       string // flag
-	Filename     string
-	DBConStr     string
-	HTTPSEnabled bool
-	JSONConfig   string
-	CertFile     string
-	KeyFile      string
+	BaseURL       string
+	LogLvl        string // flag
+	Filename      string
+	DBConStr      string
+	HTTPSEnabled  bool
+	TrustedSubnet string
+	JSONConfig    string
+	CertFile      string
+	KeyFile       string
 	HTTPServer
 }
 
@@ -40,6 +41,7 @@ type ummarshalOptions struct {
 	Filename      string `json:"file_storage_path"`
 	DBConStr      string `json:"database_dsn"`
 	HTTPSEnabled  bool   `json:"enable_https"`
+	TrustedSubnet string `json:"trusted_subnet"`
 }
 
 // HTTPServer - embedded basic parameters of the server
@@ -74,6 +76,7 @@ func SetConfig() error {
 	flag.StringVar(&StartOptions.JSONConfig, "c", "", "path to a json config")
 	flag.StringVar(&StartOptions.CertFile, "certFile", "../../internal/cert/localhost.pem", "tls certificate file path")
 	flag.StringVar(&StartOptions.KeyFile, "keyFile", "../../internal/cert/localhost-key.pem", "tls key file path")
+	flag.StringVar(&StartOptions.TrustedSubnet, "t", "", "trusted subnet")
 	// set version in usage output
 	flag.Usage = func() {
 		// TODO: How should I handle this error the best???
@@ -125,6 +128,26 @@ func SetConfig() error {
 				// if we have smth in config file
 				if UnmOptions.ServerAddress != "" {
 					StartOptions.HTTPServer.Address = UnmOptions.ServerAddress
+				}
+
+			} // else ==> DEFAULT values will be set
+
+		}
+	}
+
+	//ENV values (if set => use them else use   flags)
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+		StartOptions.TrustedSubnet = envTrustedSubnet
+	} else {
+		// if flags are set => assigning
+		if isFlagPassed("t") {
+			// assigning set value
+		} else {
+			// assign config parameters (from json)
+			if StartOptions.JSONConfig != "" {
+				// if we have smth in config file
+				if UnmOptions.TrustedSubnet != "" {
+					StartOptions.TrustedSubnet = UnmOptions.TrustedSubnet
 				}
 
 			} // else ==> DEFAULT values will be set
