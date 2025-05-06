@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -45,11 +46,12 @@ type Controller struct {
 	storage repository.URLStorage
 	// wg      *sync.WaitGroup
 	delJobs chan JobToDelete
+	wg      *sync.WaitGroup
 }
 
 // New - is a Controller's constructor.
-func New(logger *zap.Logger, storage repository.URLStorage, chJobs chan JobToDelete) *Controller {
-	return &Controller{logger: logger, storage: storage, delJobs: chJobs}
+func New(logger *zap.Logger, storage repository.URLStorage, chJobs chan JobToDelete, wg *sync.WaitGroup) *Controller {
+	return &Controller{logger: logger, storage: storage, delJobs: chJobs, wg: wg}
 }
 
 // genJWTTokenString create JWT token and return it in string type.
@@ -198,7 +200,9 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 		// c.wg.Add(1) // todo define wait group in main and bring it to controller
 		//
 		// fill the channel to delete urls
-		go func() {
+		c.wg.Add(1)
+		go func() { // TODO: прокинруть сюда wg для GS и сделать тут wg.Add(1)
+			defer c.wg.Done()
 			c.delJobs <- JobToDelete{UserID: userID, LsURL: aliasesToDel}
 		}()
 
