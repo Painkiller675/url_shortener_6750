@@ -4,13 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Painkiller675/url_shortener_6750/internal/config"
-	"github.com/Painkiller675/url_shortener_6750/internal/controller"
-	gzipMW "github.com/Painkiller675/url_shortener_6750/internal/middleware/gzip"
-	"github.com/Painkiller675/url_shortener_6750/internal/middleware/logger"
-	"github.com/Painkiller675/url_shortener_6750/internal/repository"
-	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
 	"log"
 	"net/http"
 	"net/http/pprof"
@@ -18,6 +11,15 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+
+	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+
+	"github.com/Painkiller675/url_shortener_6750/internal/config"
+	"github.com/Painkiller675/url_shortener_6750/internal/controller"
+	gzipMW "github.com/Painkiller675/url_shortener_6750/internal/middleware/gzip"
+	"github.com/Painkiller675/url_shortener_6750/internal/middleware/logger"
+	"github.com/Painkiller675/url_shortener_6750/internal/repository"
 )
 
 // @title My_URL_Shortener

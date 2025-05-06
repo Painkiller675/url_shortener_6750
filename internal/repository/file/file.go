@@ -73,8 +73,7 @@ func (s *Storage) GetStats(_ context.Context) (urls int, users int, err error) {
 	for _, userIDStor := range s.AlURLStorage {
 		urlsNum += len(userIDStor.AlURLStorage)
 	}
-	var usersNum int
-	usersNum = len(s.AlURLStorage)
+	usersNum := len(s.AlURLStorage)
 
 	return urlsNum, usersNum, nil
 }
