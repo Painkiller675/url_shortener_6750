@@ -46,13 +46,14 @@ type Controller struct {
 	logger  *zap.Logger
 	storage repository.URLStorage
 	// wg      *sync.WaitGroup
-	delJobs chan JobToDelete
-	wg      *sync.WaitGroup
+	delJobs  chan JobToDelete
+	wg       *sync.WaitGroup
+	business Business
 }
 
 // New - is a Controller's constructor.
-func New(logger *zap.Logger, storage repository.URLStorage, chJobs chan JobToDelete, wg *sync.WaitGroup) *Controller {
-	return &Controller{logger: logger, storage: storage, delJobs: chJobs, wg: wg}
+func New(bus Business, logger *zap.Logger, storage repository.URLStorage, chJobs chan JobToDelete, wg *sync.WaitGroup) *Controller {
+	return &Controller{business: bus, logger: logger, storage: storage, delJobs: chJobs, wg: wg}
 }
 
 // genJWTTokenString create JWT token and return it in string type.
@@ -315,7 +316,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 		// save the data
 		randAl := service.GetRandString(string(body))
 		c.logger.Info("INSERT IN DATABASE", zap.String("Alias:", randAl), zap.String("BODY: ", string(body)))
-		_, err = c.storage.StoreAlURL(req.Context(), randAl, string(body), userID) // TODO [MENTOR]: mb del _ or change driver to support id?
+		_, err = c.business.StoreAlURL(req.Context(), randAl, string(body), userID) // TODO [MENTOR]: mb del _ or change driver to use id?
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // the try to short already existed url pg database
 				c.logger.Info("URL already exists!", zap.Error(err))
@@ -372,7 +373,7 @@ func (c *Controller) GetLongURLHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		idAl := req.PathValue("id") // the cap
 		// response molding ...
-		orURL, err := c.storage.GetOrURLByAl(req.Context(), idAl)
+		orURL, err := c.business.GetOrURLByAl(req.Context(), idAl)
 		if err != nil { // TODO: mb I should use status 500 here?
 			if errors.Is(err, merrors.ErrURLIsDel) { // if URL was deleted
 				c.logger.Info("[INFO]", zap.Error(err))
@@ -436,7 +437,7 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 		randAl := service.GetRandString(orStruct.OrURL)
 		// save the data
 		c.logger.Info("INSERT IN DATABASE", zap.String("ShortURL:", randAl), zap.String("OrURL::", orStruct.OrURL))
-		_, err = c.storage.StoreAlURL(req.Context(), randAl, orStruct.OrURL, userID)
+		_, err = c.business.StoreAlURL(req.Context(), randAl, orStruct.OrURL, userID)
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // if alias for url already exists in the pg database
 				c.logger.Info("URL already exists !", zap.String("place:", op), zap.Error(err))
@@ -512,7 +513,7 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 // PingDB checks if the postgres database is available.
 func (c *Controller) PingDB() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		err := c.storage.Ping(req.Context())
+		err := c.business.PingDB(req.Context()) // use the interface to access the business logic
 		// if no connection
 		if err != nil {
 			c.logger.Warn("[WARNING]", zap.String("PingDB", "Can't ping pg database!"), zap.Error(err))
@@ -584,7 +585,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler() http.HandlerFunc {
 		}
 
 		// save data into the database and create respBatch for response
-		respBatch, err := c.storage.SaveBatchURL(req.Context(), idURLAl)
+		respBatch, err := c.business.SaveBatchURL(req.Context(), idURLAl)
 		if err != nil {
 			c.logger.Error("[ERROR]", zap.Error(err))
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

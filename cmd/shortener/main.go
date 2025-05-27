@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Painkiller675/url_shortener_6750/internal/business"
+	"github.com/Painkiller675/url_shortener_6750/internal/controller/grpc"
 	"log"
 	"net/http"
 	"net/http/pprof"
@@ -86,8 +88,12 @@ func main() {
 
 	// create a wait group
 	//var wg sync.WaitGroup // TODO bring it to controller
+
+	// init business logic instance
+	busLog := &business.Business{Storage: s}
+
 	// init controller
-	c := controller.New(l.Logger, s, chanJobs, &wg1) //
+	c := controller.New(busLog, l.Logger, s, chanJobs, &wg1) //
 
 	// init router
 	r := chi.NewRouter()
@@ -127,6 +133,14 @@ func main() {
 			log.Printf("HTTP server Shutdown: %v", err)
 		}
 		close(idleConnsClosed)
+	}()
+
+	grpcServer := &grpc.Server{}
+
+	go func() {
+		if err := grpc.Serve(grpcServer); err != nil {
+			log.Println("gRPC server failed: %w", err)
+		}
 	}()
 
 	fmt.Printf("Build version: %s\n Build date: %s\n Build commit: %s\n\n", buildVersion, buildDate, buildCommit)
