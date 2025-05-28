@@ -4,8 +4,10 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -22,7 +24,9 @@ var version = "4.0" +
 
 // Options - basic parameters of the server
 type Options struct {
-	BaseURL       string
+	BaseURL *url.URL // we'll parse it over here to save memory allocation in StoreAlURL in business
+	//so we'll use baseURL.JoinPath(randAl) instead of url.JoinPath(..)
+	BaseURLStr    string
 	LogLvl        string // flag
 	Filename      string
 	DBConStr      string
@@ -68,7 +72,7 @@ var UnmOptions ummarshalOptions
 func SetConfig() error {
 	//var StartOptions Options
 	flag.StringVar(&StartOptions.HTTPServer.Address, "a", ":8080", "HTTP-server address")
-	flag.StringVar(&StartOptions.BaseURL, "b", "http://localhost:8080/", "base URL")
+	flag.StringVar(&StartOptions.BaseURLStr, "b", "http://localhost:8080/", "base URL")
 	flag.StringVar(&StartOptions.LogLvl, "l", "info", "log level")
 	flag.StringVar(&StartOptions.Filename, "f", "", "storage filename")
 	flag.StringVar(&StartOptions.DBConStr, "d", "", "DSN (for database)")
@@ -155,17 +159,28 @@ func SetConfig() error {
 		}
 	}
 
+	err := errors.New("[config] parse url error") // TODO: why if I del it it'd be an error
 	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
-		StartOptions.BaseURL = envBaseURL
+		StartOptions.BaseURL, err = url.Parse(envBaseURL)
+		if err != nil {
+			return err
+		}
 	} else {
 		// if flags are set => assigning
 		if isFlagPassed("b") {
+			StartOptions.BaseURL, err = url.Parse(StartOptions.BaseURLStr)
+			if err != nil {
+				return err
+			}
 			// assigning set value
 		} else {
 			// assign config parameters (from json)
 			if StartOptions.JSONConfig != "" {
 				if UnmOptions.BaseURL != "" {
-					StartOptions.BaseURL = UnmOptions.BaseURL
+					StartOptions.BaseURL, err = url.Parse(UnmOptions.BaseURL)
+					if err != nil {
+						return err
+					}
 				}
 			} // else ==> DEFAULT values will be set
 

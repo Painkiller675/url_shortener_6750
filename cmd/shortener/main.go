@@ -62,7 +62,7 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	l.Logger.Info("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL))
+	//l.Logger.Info("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL.String()))
 	//render logger for gzip
 	//gzipMW.NewGzipLogger(l.Logger)
 
@@ -93,7 +93,7 @@ func main() {
 	busLog := &business.Business{Storage: s}
 
 	// init controller
-	c := controller.New(busLog, l.Logger, s, chanJobs, &wg1) //
+	c := controller.New(busLog, l.Logger, chanJobs, &wg1) //
 
 	// init router
 	r := chi.NewRouter()
@@ -107,7 +107,7 @@ func main() {
 		r.Post("/", c.CreateShortURLHandler())
 		r.Get("/ping", c.PingDB())
 		r.Get("/{id}", c.GetLongURLHandler())
-		r.Post("/api/shorten", c.CreateShortURLJSONHandler())
+		r.Post("/api/shorten", c.CreateShortURLJSONHandler()) // TODO: gRPC??
 		r.Post("/api/shorten/batch", c.CreateShortURLJSONBatchHandler())
 		r.Get("/api/user/urls", c.GetUserURLSHandler())
 		r.Delete("/api/user/urls", c.DeleteURLSHandler())

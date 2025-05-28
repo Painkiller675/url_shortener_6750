@@ -21,7 +21,6 @@ import (
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/lib/merrors"
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
-	"github.com/Painkiller675/url_shortener_6750/internal/repository"
 	"github.com/Painkiller675/url_shortener_6750/internal/service"
 )
 
@@ -43,8 +42,7 @@ type JSONStructOr struct {
 
 // Controller - basic struct for the app controller.
 type Controller struct {
-	logger  *zap.Logger
-	storage repository.URLStorage
+	logger *zap.Logger
 	// wg      *sync.WaitGroup
 	delJobs  chan JobToDelete
 	wg       *sync.WaitGroup
@@ -52,8 +50,8 @@ type Controller struct {
 }
 
 // New - is a Controller's constructor.
-func New(bus Business, logger *zap.Logger, storage repository.URLStorage, chJobs chan JobToDelete, wg *sync.WaitGroup) *Controller {
-	return &Controller{business: bus, logger: logger, storage: storage, delJobs: chJobs, wg: wg}
+func New(bus Business, logger *zap.Logger, chJobs chan JobToDelete, wg *sync.WaitGroup) *Controller {
+	return &Controller{business: bus, logger: logger, delJobs: chJobs, wg: wg}
 }
 
 // genJWTTokenString create JWT token and return it in string type.
@@ -135,7 +133,7 @@ func (c *Controller) setAuthToken(w http.ResponseWriter, tokenStr string) {
 
 // url -X GET --header "X-Real-IP: 192.168.0.19" -i http://localhost:8080/api/internal/stats
 //
-// GetStats is used to get the statistics namely the number of urls and users in the database
+// GetStats is used to get the statistics namely the number of urls and users in the database - /api/internal/stats
 func (c *Controller) GetStats() http.HandlerFunc {
 	return func(res http.ResponseWriter, r *http.Request) {
 		const op = "controller.GetStats"
@@ -161,14 +159,14 @@ func (c *Controller) GetStats() http.HandlerFunc {
 		}
 		// parse the request ip  (convert it to []byte)
 		ipB := net.ParseIP(ip.String())
-		// check if our trusted subnet contains the ip
+		// check if our trusted subnet contains the ip   // TODO: mb move it to the business logic?
 		if !sub.Contains(ipB) {
 			c.logger.Info("Subnet doesn't contain user IP", zap.String("ip", ipX))
 			res.WriteHeader(http.StatusForbidden)
 			return
 		}
 		// get needed statistics from the database
-		urlsCount, usersCount, err := c.storage.GetStats(r.Context())
+		urlsCount, usersCount, err := c.business.GetStats(r.Context())
 		if err != nil {
 			c.logger.Info("Error getting stats", zap.Error(err))
 			res.WriteHeader(http.StatusInternalServerError)
@@ -200,7 +198,7 @@ func (c *Controller) GetStats() http.HandlerFunc {
 
 }
 
-// DeleteURLSHandler deletes user's data. If user didn't create the data, he can't delete them.
+// DeleteURLSHandler deletes user's data. If user didn't create the data, he can't delete them. GET /api/user/urls
 func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.DeleteURLSHandler"
@@ -223,7 +221,7 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 			return
 		}
 		// check if user exists TODO: del that or not
-		err = c.storage.CheckIfUserExists(req.Context(), userID)
+		err = c.business.CheckIfUserExists(req.Context(), userID)
 		if err != nil {
 			if errors.Is(err, merrors.ErrUserNotFound) {
 				c.logger.Info("User not found", zap.String("user_id", userID))
@@ -259,28 +257,18 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 			http.Error(res, err.Error(), http.StatusBadRequest) // TODO [MENTOR]: BadRequest or InternalServerError?
 			return
 		}
-
 		// В случае успешного приёма запроса хендлер должен возвращать HTTP-статус 202 Accepted.
 		//Фактический результат удаления может происходить позже — оповещать пользователя
 		//об успешности или неуспешности не нужно. => notify the user
 		res.Header().Set("Content-Type", "application/json")
-		res.WriteHeader(http.StatusAccepted) // TODO [MENTOR]: when it would be send ?? I have a goroutine here!
-		// TODO gone status!!!!
-		// c.wg.Add(1) // todo define wait group in main and bring it to controller
-		//
+		res.WriteHeader(http.StatusAccepted)
 		// fill the channel to delete urls
 		c.wg.Add(1)
-		go func() { // TODO: прокинруть сюда wg для GS и сделать тут wg.Add(1)
+		go func() {
 			defer c.wg.Done()
 			c.delJobs <- JobToDelete{UserID: userID, LsURL: aliasesToDel}
 		}()
 
-		// go func() {
-		// 	defer c.wg.Done()
-		// 	if err := c.storage.DeleteURLsByUserID(req.Context(), userID, aliasesToDel); err != nil {
-		// 		c.logger.Error("[ERROR]", zap.Error(err)) // TODO [MENTOR]: it doesn't work, cause I should do smth in main stream
-		// 	}
-		// }()
 	}
 }
 
@@ -288,7 +276,7 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.CreateSHortURLHandler"
-		c.logger.Info("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL))
+		c.logger.Info("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL.String()))
 		//check the body
 		body, err := io.ReadAll(req.Body)
 		if err != nil || len(body) == 0 {
@@ -312,24 +300,22 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 			// add generate token string to the Cookies
 			c.setAuthToken(res, tokenStr)
 		}
-
+		// parse the url (validation +)
+		urlIn, err := url.Parse(string(body))
+		if err != nil {
+			c.logger.Error("[ERROR] can't parse a client URL", zap.Error(err))
+			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
 		// save the data
-		randAl := service.GetRandString(string(body))
-		c.logger.Info("INSERT IN DATABASE", zap.String("Alias:", randAl), zap.String("BODY: ", string(body)))
-		_, err = c.business.StoreAlURL(req.Context(), randAl, string(body), userID) // TODO [MENTOR]: mb del _ or change driver to use id?
+
+		resultURL, err := c.business.StoreAlURL(req.Context(), urlIn, userID) // TODO [MENTOR]: mb del _ or change driver to use id?
+		c.logger.Info("[INSERT] a try", zap.String("ShortURL:", resultURL), zap.String("BODY: ", string(body)))
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // the try to short already existed url pg database
 				c.logger.Info("URL already exists!", zap.Error(err))
-				c.logger.Info("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL))
-				// response with existing url and 409
-				// response molding
-				baseURL := config.StartOptions.BaseURL
-				resultURL, err := url.JoinPath(baseURL, randAl)
-				if err != nil {
-					http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-					return
-				}
-
+				c.logger.Info("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL.String()))
+				// response molding (existing URL && 409)
 				res.Header().Set("Content-Type", "text/plain")
 				res.Header().Set("Content-Length", strconv.Itoa(len([]byte(resultURL))))
 				res.WriteHeader(http.StatusConflict) // 409
@@ -349,13 +335,6 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 		}
 		// if everything is ok => add url into the database
 		// response molding
-		baseURL := config.StartOptions.BaseURL
-		resultURL, err := url.JoinPath(baseURL, randAl)
-		if err != nil {
-			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-
 		res.Header().Set("Content-Type", "text/plain")
 		res.Header().Set("Content-Length", strconv.Itoa(len([]byte(resultURL))))
 		res.WriteHeader(http.StatusCreated) // 201 or 409
@@ -368,7 +347,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 	return http.HandlerFunc(fn)
 }
 
-// GetLongURLHandler returns original URL to the user.
+// GetLongURLHandler returns original URL to the user by the alias.
 func (c *Controller) GetLongURLHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		idAl := req.PathValue("id") // the cap
@@ -433,25 +412,21 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 		// add token string to the Cookies
 		c.setAuthToken(res, tokenStr)
 
-		// calculate the alias
-		randAl := service.GetRandString(orStruct.OrURL)
-		// save the data
-		c.logger.Info("INSERT IN DATABASE", zap.String("ShortURL:", randAl), zap.String("OrURL::", orStruct.OrURL))
-		_, err = c.business.StoreAlURL(req.Context(), randAl, orStruct.OrURL, userID)
+		// parse the url (validation +)
+		urlIn, err := url.Parse(orStruct.OrURL)
+		if err != nil {
+			c.logger.Error("[ERROR] can't parse a client URL", zap.Error(err))
+			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		// save the data, resultURL - a shorten URL
+		resultURL, err := c.business.StoreAlURL(req.Context(), urlIn, userID)
+		c.logger.Info("[INSERT] a try", zap.String("ShortURL:", resultURL), zap.String("OrURL::", orStruct.OrURL))
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // if alias for url already exists in the pg database
 				c.logger.Info("URL already exists !", zap.String("place:", op), zap.Error(err))
-				// return existing short url
-				// base URL
-				baseURL := config.StartOptions.BaseURL
-				shURL, err := url.JoinPath(baseURL, randAl)
-				if err != nil {
-					c.logger.Info("[ERROR]", zap.Error(err))
-					http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-					return
-				}
 				// add short URL to the auxiliary struct
-				jsStruct.ShURL = shURL
+				jsStruct.ShURL = resultURL
 				// marshal data for response
 				marData, err := json.Marshal(jsStruct)
 				if err != nil {
@@ -478,17 +453,8 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 				return
 			}
 		}
-		//if no errors => add url into the database
-		// base URL
-		baseURL := config.StartOptions.BaseURL
-		shURL, err := url.JoinPath(baseURL, randAl)
-		if err != nil {
-			c.logger.Info("[ERROR]", zap.Error(err))
-			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
 		// add short URL to the auxiliary struct
-		jsStruct.ShURL = shURL
+		jsStruct.ShURL = resultURL
 		// marshal data for response
 		marData, err := json.Marshal(jsStruct)
 		if err != nil {
@@ -526,7 +492,7 @@ func (c *Controller) PingDB() http.HandlerFunc {
 	}
 }
 
-// CreateShortURLJSONBatchHandler creates aliases for lots of URLs (the batch).
+// CreateShortURLJSONBatchHandler creates aliases for lots of URLs (the batch) - /api/shorten/batch
 func (c *Controller) CreateShortURLJSONBatchHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		//check content-type (application/json)
@@ -535,9 +501,6 @@ func (c *Controller) CreateShortURLJSONBatchHandler() http.HandlerFunc {
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
-
-		// check the body: TODO: del reuse bbody
-
 		//check the body
 		body, err := io.ReadAll(req.Body)
 		if err != nil || len(body) == 0 {
@@ -596,10 +559,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler() http.HandlerFunc {
 		// molding the response
 
 		for _, idSh := range *respBatch {
-			fullShortURL, err := url.JoinPath(config.StartOptions.BaseURL, idSh.ShortURL)
-			if err != nil {
-				c.logger.Error("[ERROR]", zap.Error(err))
-			}
+			fullShortURL := (config.StartOptions.BaseURL.JoinPath(idSh.ShortURL)).String()
 			response = append(response, models.JSONBatStructToSerResp{
 				CorrelationID: idSh.CorrelationID,
 				ShortURL:      fullShortURL,
@@ -626,7 +586,7 @@ func (c *Controller) CreateShortURLJSONBatchHandler() http.HandlerFunc {
 	}
 }
 
-// GetUserURLSHandler returns aliases of  a particular user.
+// GetUserURLSHandler returns aliases of  a particular user - /api/user/urls
 func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.GetUserURLSHandler"
@@ -649,7 +609,7 @@ func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 			return
 		}
 		//var alURLStruct = models.UserURLS{}
-		respAlURLStruct, err := c.storage.GetDataByUserID(req.Context(), userID)
+		respAlURLStruct, err := c.business.GetDataByUserID(req.Context(), userID)
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLNotFound) { // no data for the user!
 				c.logger.Info("[INFO]", zap.String("place:", op), zap.Error(err))
@@ -663,12 +623,7 @@ func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 		}
 		// replace alias with short url (add base url)
 		for n, alURL := range *respAlURLStruct {
-			fullShortURL, err := url.JoinPath(config.StartOptions.BaseURL, alURL.ShortURL)
-			if err != nil {
-				c.logger.Error("[ERROR]", zap.Error(err))
-				http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-				return
-			}
+			fullShortURL := (config.StartOptions.BaseURL.JoinPath(alURL.ShortURL)).String()
 			(*(respAlURLStruct))[n].ShortURL = fullShortURL
 		}
 
