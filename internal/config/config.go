@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -22,7 +23,8 @@ var version = "4.0" +
 
 // Options - basic parameters of the server
 type Options struct {
-	BaseURL       string
+	BaseURL *url.URL // we'll parse it over here to save memory allocation  baseURL будет *url.URL
+	//То просто baseURL.JoinPath(randAl) и все
 	LogLvl        string // flag
 	Filename      string
 	DBConStr      string

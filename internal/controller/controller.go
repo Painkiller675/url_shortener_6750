@@ -312,11 +312,17 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 			// add generate token string to the Cookies
 			c.setAuthToken(res, tokenStr)
 		}
-
+		// parse the url
+		urlIn, err := url.Parse(string(body))
+		if err != nil {
+			c.logger.Error("[ERROR] can't parse client URL", zap.Error(err))
+			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
 		// save the data
-		randAl := service.GetRandString(string(body))
-		c.logger.Info("INSERT IN DATABASE", zap.String("Alias:", randAl), zap.String("BODY: ", string(body)))
-		_, err = c.business.StoreAlURL(req.Context(), randAl, string(body), userID) // TODO [MENTOR]: mb del _ or change driver to use id?
+
+		//c.logger.Info("INSERT IN DATABASE", zap.String("Alias:", randAl), zap.String("BODY: ", string(body)))
+		randAl, err := c.business.StoreAlURL(req.Context(), urlIn.String(), userID) // TODO [MENTOR]: mb del _ or change driver to use id?
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // the try to short already existed url pg database
 				c.logger.Info("URL already exists!", zap.Error(err))
@@ -324,7 +330,7 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 				// response with existing url and 409
 				// response molding
 				baseURL := config.StartOptions.BaseURL
-				resultURL, err := url.JoinPath(baseURL, randAl)
+				resultURL, err := url.JoinPath(baseURL, randAl) // TODO: вернуть ошибку и resultURL сформированный в бизнесе
 				if err != nil {
 					http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 					return
@@ -535,8 +541,6 @@ func (c *Controller) CreateShortURLJSONBatchHandler() http.HandlerFunc {
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
-
-		// check the body: TODO: del reuse bbody
 
 		//check the body
 		body, err := io.ReadAll(req.Body)
