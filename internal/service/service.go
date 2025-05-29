@@ -4,7 +4,6 @@ package service
 import (
 	"crypto/sha1"
 	"encoding/hex"
-
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
 )
 

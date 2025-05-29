@@ -46,3 +46,9 @@ type Claims struct {
 	jwt.RegisteredClaims
 	UserID string
 }
+
+// JobToDelete is used for the asynchronous deleting
+type JobToDelete struct {
+	UserID string
+	LsURL  []string
+}

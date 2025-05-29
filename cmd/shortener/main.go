@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Painkiller675/url_shortener_6750/internal/business"
 	"github.com/Painkiller675/url_shortener_6750/internal/controller/grpc"
+	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"log"
 	"net/http"
 	"net/http/pprof"
@@ -77,8 +78,8 @@ func main() {
 
 	// init jobs for deleting
 	var wg1 sync.WaitGroup
-	var wg2 sync.WaitGroup
-	chanJobs := make(chan controller.JobToDelete, 100) // смысла нет в БУФЕРЕ, если клиентов >100
+	var wg2 sync.WaitGroup                         // TODO [MENTOR] надо ли создавать отдельный канал для gRPC под удаление?
+	chanJobs := make(chan models.JobToDelete, 100) // смысла нет в БУФЕРЕ, если клиентов >100
 	// ибо всё равно узкое горлышко - обращение к БД и там все эти горутины всё равно встанут в очередь
 	//defer close(chanJobs)
 
@@ -90,7 +91,7 @@ func main() {
 	//var wg sync.WaitGroup // TODO bring it to controller
 
 	// init business logic instance
-	busLog := &business.Business{Storage: s}
+	busLog := business.NewBusiness(s, l.Logger)
 
 	// init controller
 	c := controller.New(busLog, l.Logger, chanJobs, &wg1) //
@@ -135,7 +136,8 @@ func main() {
 		close(idleConnsClosed)
 	}()
 
-	grpcServer := &grpc.Server{}
+	//grpcServer := &grpc.Server{}
+	grpcServer := grpc.NewGRPCServer(busLog, l.Logger, &wg1, chanJobs)
 
 	go func() {
 		if err := grpc.Serve(grpcServer); err != nil {
@@ -151,6 +153,7 @@ func main() {
 		if config.StartOptions.HTTPSEnabled {
 
 			l.Logger.Info("Running HTTPS server", zap.String("address", config.StartOptions.HTTPServer.Address))
+			l.Logger.Info("Server options:", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL.String()))
 			if err := srv.ListenAndServeTLS(config.StartOptions.CertFile, config.StartOptions.KeyFile); err != nil {
 				if !errors.Is(err, http.ErrServerClosed) { // если завершился не по штатному шатдауну
 					panic(err)
@@ -184,7 +187,7 @@ func main() {
 // в хэндлер wg пробросить и wg.Add и ждать
 // далее после wg.wait закрыть канал но в нём могут быть данные => вторую wg ждём для go deleteURL(s, chanJobs)
 // TODO: либо в горутине запускать сервак и после этого ловить сигнал ..
-func deleteURL(wg *sync.WaitGroup, s repository.URLStorage, jobs chan controller.JobToDelete) {
+func deleteURL(wg *sync.WaitGroup, s repository.URLStorage, jobs chan models.JobToDelete) {
 	defer wg.Done()
 	for job := range jobs { // waiting for data in buffered channel
 		if err := s.DeleteURLsByUserID(context.Background(), job.UserID, job.LsURL); err != nil {

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -13,9 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/golang-jwt/jwt/v4"
 	"go.uber.org/zap"
 
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
@@ -23,12 +20,6 @@ import (
 	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"github.com/Painkiller675/url_shortener_6750/internal/service"
 )
-
-// JobToDelete is used for the asynchronous deleting
-type JobToDelete struct {
-	UserID string
-	LsURL  []string
-}
 
 // JSONStruct is used to unmarshal js request nd send js response in CreateShortURLJSONHandler
 type JSONStructSh struct {
@@ -44,91 +35,14 @@ type JSONStructOr struct {
 type Controller struct {
 	logger *zap.Logger
 	// wg      *sync.WaitGroup
-	delJobs  chan JobToDelete
+	delJobs  chan models.JobToDelete
 	wg       *sync.WaitGroup
 	business Business
 }
 
 // New - is a Controller's constructor.
-func New(bus Business, logger *zap.Logger, chJobs chan JobToDelete, wg *sync.WaitGroup) *Controller {
-	return &Controller{business: bus, logger: logger, delJobs: chJobs, wg: wg}
-}
-
-// genJWTTokenString create JWT token and return it in string type.
-func (c *Controller) genJWTTokenString() (string, string, error) { // TODO [MENTOR]: mb I should replace this func ???
-	// создаём новый токен с алгоритмом подписи HS256 и утверждениями — Claims
-	//usId := string(time.Now().Unix())
-	usID := service.GetRandString(time.Now().UTC().String())
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, models.Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			// set expiration time
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(config.TokenExp)), //TODO [MENTOR] is it a good way to store it?
-		},
-		// set my own statement
-		UserID: usID, // TODO [MENTOR]: how should I implement it better??
-		// int(b[0] + b[1])
-	})
-
-	// создаём строку токена
-	tokenString, err := token.SignedString([]byte(config.SecretKey)) // TODO [MENTOR]: how to store it better? how people store it in real projects? In env?
-	// TODO: ok if env .. I set the env value secretKey on my PC e.g. and then start the app?
-	if err != nil {
-		return "", "", err
-	}
-
-	// возвращаем строку токена
-	return tokenString, usID, nil
-
-}
-
-func (c *Controller) retrieveUserIDFromTokenString(r *http.Request) (string, error) {
-	// get token string from the cookies
-	tokenString, err := r.Cookie("token")
-
-	if err != nil {
-		c.logger.Info("No token!", zap.Error(err))
-		return "", errors.New("no token")
-	}
-	// TODO: [MENTOR] SHOULD I CHECK
-	if tokenString.Value == "" {
-		c.logger.Info("Empty token!", zap.Error(err))
-		return "", errors.New("empty token")
-	}
-	// создаём экземпляр структуры с утверждениями
-	claims := &models.Claims{}
-	// парсим из строки токена tokenString в структуру claims
-	token, err := jwt.ParseWithClaims(tokenString.Value, claims, func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-		} // anti-hacker check
-		return []byte(config.SecretKey), nil
-	})
-	if err != nil {
-		c.logger.Info("Can't parse token!", zap.Error(err))
-		return "", errors.New("can't parse token")
-	}
-
-	if !token.Valid {
-		c.logger.Info("Invalid token!", zap.Error(err))
-		return "", errors.New("invalid token")
-	}
-
-	c.logger.Info("Successfully retrieved token!", zap.String("token", tokenString.Value))
-	// возвращаем ID пользователя в читаемом виде
-	return claims.UserID, nil
-
-}
-
-func (c *Controller) setAuthToken(w http.ResponseWriter, tokenStr string) {
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "token",
-		Value:    tokenStr,
-		Secure:   false,
-		HttpOnly: true,
-		Expires:  time.Now().Add(config.TokenExp),
-	})
-
+func New(bus Business, logger *zap.Logger, delJobs chan models.JobToDelete, wg *sync.WaitGroup) *Controller {
+	return &Controller{business: bus, logger: logger, delJobs: delJobs, wg: wg}
 }
 
 // url -X GET --header "X-Real-IP: 192.168.0.19" -i http://localhost:8080/api/internal/stats
@@ -212,9 +126,16 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 		}
 		c.logger.Info("DeleteURLSHandler", zap.String("Request body: ", string(body)), zap.String("url", req.URL.String()))
 
-		// retrieve token if any
+		// retrieve token(userID) if any
 		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
-		userID, err := c.retrieveUserIDFromTokenString(req)
+		// get tokenString value (for REST)
+		tokenString, err := c.business.GetTokenStrVal(req)
+		if err != nil {
+			c.logger.Error("[ERROR]", zap.String("place:", op), zap.Error(err))
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		userID, err := c.business.RetrieveUserIDFromTokenString(tokenString)
 		if err != nil { // can't retrieve token => error
 			c.logger.Info("Request token issues", zap.String("token", string(body)))
 			res.WriteHeader(http.StatusUnauthorized)
@@ -266,7 +187,7 @@ func (c *Controller) DeleteURLSHandler() http.HandlerFunc {
 		c.wg.Add(1)
 		go func() {
 			defer c.wg.Done()
-			c.delJobs <- JobToDelete{UserID: userID, LsURL: aliasesToDel}
+			c.delJobs <- models.JobToDelete{UserID: userID, LsURL: aliasesToDel}
 		}()
 
 	}
@@ -287,18 +208,25 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 		c.logger.Info("Request body", zap.String("body", string(body)))
 		var tokenStr, userID string
 
-		// retrieve token if any
 		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
-		userID, err = c.retrieveUserIDFromTokenString(req)
+		// get tokenString value (for REST)
+		tokenString, err := c.business.GetTokenStrVal(req)
+		if err != nil {
+			c.logger.Error("[ERROR]", zap.String("place:", op), zap.Error(err))
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		// retrieve userID if any
+		userID, err = c.business.RetrieveUserIDFromTokenString(tokenString)
 		if err != nil { // can't retrieve => register a new user a
-			tokenStr, userID, err = c.genJWTTokenString()
+			tokenStr, userID, err = c.business.GenJWTTokenString()
 			if err != nil {
 				c.logger.Info("Can't generate token!", zap.Error(err))
 				res.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 			// add generate token string to the Cookies
-			c.setAuthToken(res, tokenStr)
+			c.business.SetAuthTokenInCookies(res, tokenStr)
 		}
 		// parse the url (validation +)
 		urlIn, err := url.Parse(string(body))
@@ -314,7 +242,6 @@ func (c *Controller) CreateShortURLHandler() http.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, merrors.ErrURLOrAliasExists) { // the try to short already existed url pg database
 				c.logger.Info("URL already exists!", zap.Error(err))
-				c.logger.Info("Starting server", zap.String("ConString: ", config.StartOptions.DBConStr), zap.String("BaseURL:", config.StartOptions.BaseURL.String()))
 				// response molding (existing URL && 409)
 				res.Header().Set("Content-Type", "text/plain")
 				res.Header().Set("Content-Length", strconv.Itoa(len([]byte(resultURL))))
@@ -398,20 +325,26 @@ func (c *Controller) CreateShortURLJSONHandler() http.HandlerFunc {
 
 		var tokenStr, userID string
 		var err error
-		// retrieve token if any
 		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
-		userID, err = c.retrieveUserIDFromTokenString(req)
+		// get tokenString value (for REST)
+		tokenString, err := c.business.GetTokenStrVal(req)
+		if err != nil {
+			c.logger.Error("[ERROR]", zap.String("place:", op), zap.Error(err))
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		// retrieve token(userID) if any
+		userID, err = c.business.RetrieveUserIDFromTokenString(tokenString)
 		if err != nil { // can't retrieve => register a new user a
-			tokenStr, userID, err = c.genJWTTokenString()
+			tokenStr, userID, err = c.business.GenJWTTokenString()
 			if err != nil {
 				c.logger.Info("Can't generate token!", zap.Error(err))
 				res.WriteHeader(http.StatusInternalServerError)
 				return
 			}
+			// add token string to the Cookies (for a new user)
+			c.business.SetAuthTokenInCookies(res, tokenStr)
 		}
-		// add token string to the Cookies
-		c.setAuthToken(res, tokenStr)
-
 		// parse the url (validation +)
 		urlIn, err := url.Parse(orStruct.OrURL)
 		if err != nil {
@@ -591,20 +524,27 @@ func (c *Controller) GetUserURLSHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		const op = "controller.GetUserURLSHandler"
 
-		// retrieve token if any
 		c.logger.Info("[INFO]", zap.Any("retrieveUserIDFromToken", op))
-		userID, err := c.retrieveUserIDFromTokenString(req)
+		// get tokenString value (for REST)
+		tokenString, err := c.business.GetTokenStrVal(req)
+		if err != nil {
+			c.logger.Error("[ERROR]", zap.String("place:", op), zap.Error(err))
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		// retrieve the token(userID) if any
+		userID, err := c.business.RetrieveUserIDFromTokenString(tokenString)
 		if err != nil { // can't retrieve => return 401 Unauthorized
 			var tokenStr string
 			var err error
-			tokenStr, _, err = c.genJWTTokenString()
+			tokenStr, _, err = c.business.GenJWTTokenString()
 			if err != nil {
 				c.logger.Info("Can't generate token!", zap.Error(err))
 				res.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 			// add generate token string to the Cookies
-			c.setAuthToken(res, tokenStr)
+			c.business.SetAuthTokenInCookies(res, tokenStr)
 			res.WriteHeader(http.StatusNoContent)
 			return
 		}
