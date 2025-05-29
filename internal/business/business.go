@@ -105,13 +105,13 @@ func (b *Business) GetTokenStrVal(req *http.Request) (string, error) {
 	// get token string from the cookies
 	tokenString, err := req.Cookie("token")
 	if err != nil {
-		b.logger.Info("No token!", zap.Error(err))
-		return "", errors.New("No token!")
+		b.logger.Info("no token", zap.Error(err))
+		return "", errors.New("no token")
 	}
 	// Check token value and send it for retrieving userID
 	if tokenString.Value == "" {
-		b.logger.Info("Empty token!", zap.Error(err))
-		return "", errors.New("Empty token!")
+		b.logger.Info("empty token", zap.Error(err))
+		return "", errors.New("empty token")
 	}
 	return tokenString.Value, nil
 }
