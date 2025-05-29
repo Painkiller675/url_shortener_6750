@@ -160,8 +160,9 @@ func SetConfig() error {
 	}
 
 	//err := errors.New("[config] parse url error") // TODO: why if I del it it'd be an error
+	err := errors.New("")
 	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
-		StartOptions.BaseURL, err := url.Parse(envBaseURL)
+		StartOptions.BaseURL, err = url.Parse(envBaseURL)
 		if err != nil {
 			return err
 		}
