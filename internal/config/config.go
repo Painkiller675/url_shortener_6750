@@ -4,7 +4,6 @@ package config
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -159,8 +158,7 @@ func SetConfig() error {
 		}
 	}
 
-	//err := errors.New("[config] parse url error") // TODO: why if I del it it'd be an error
-	err := errors.New("")
+	var err error
 	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
 		StartOptions.BaseURL, err = url.Parse(envBaseURL)
 		if err != nil {
