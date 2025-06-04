@@ -35,6 +35,7 @@ type Options struct {
 	CertFile      string
 	KeyFile       string
 	HTTPServer
+	GRPCServer
 }
 
 // ummarshalOptions - is used to unmarshal json config file
@@ -45,6 +46,7 @@ type ummarshalOptions struct {
 	DBConStr      string `json:"database_dsn"`
 	HTTPSEnabled  bool   `json:"enable_https"`
 	TrustedSubnet string `json:"trusted_subnet"`
+	GRPCAddress   string `json:"gRPC_address"`
 }
 
 // HTTPServer - embedded basic parameters of the server
@@ -52,6 +54,10 @@ type HTTPServer struct {
 	Address     string
 	Timeout     time.Duration
 	IdleTimeout time.Duration
+}
+
+type GRPCServer struct {
+	Address string
 }
 
 // StartOptions - for flags
@@ -71,10 +77,11 @@ var UnmOptions ummarshalOptions
 func SetConfig() error {
 	//var StartOptions Options
 	flag.StringVar(&StartOptions.HTTPServer.Address, "a", ":8080", "HTTP-server address")
+	flag.StringVar(&StartOptions.GRPCServer.Address, "ga", ":8081", "gRPC-server address")
 	flag.StringVar(&StartOptions.BaseURLStr, "b", "http://localhost:8080/", "base URL")
 	flag.StringVar(&StartOptions.LogLvl, "l", "info", "log level")
 	flag.StringVar(&StartOptions.Filename, "f", "", "storage filename")
-	flag.StringVar(&StartOptions.DBConStr, "d", "", "DSN (for database)")
+	flag.StringVar(&StartOptions.DBConStr, "d", "user=postgres password=12345678 dbname=url_shortener sslmode=disable", "DSN (for database)")
 	flag.BoolVar(&StartOptions.HTTPSEnabled, "s", false, "to deactivate https mode use -s false ")
 	flag.StringVar(&StartOptions.JSONConfig, "c", "", "path to a json config")
 	flag.StringVar(&StartOptions.CertFile, "certFile", "../../internal/cert/localhost.pem", "tls certificate file path")
@@ -131,6 +138,25 @@ func SetConfig() error {
 				// if we have smth in config file
 				if UnmOptions.ServerAddress != "" {
 					StartOptions.HTTPServer.Address = UnmOptions.ServerAddress
+				}
+
+			} // else ==> DEFAULT values will be set
+
+		}
+	}
+
+	if envRunAddr := os.Getenv("GSERVER_ADDRESS"); envRunAddr != "" {
+		StartOptions.GRPCServer.Address = envRunAddr
+	} else {
+		// if flags are set => assigning
+		if isFlagPassed("ga") {
+			// assigning set value
+		} else {
+			// assign config parameters (from json)
+			if StartOptions.JSONConfig != "" {
+				// if we have smth in config file
+				if UnmOptions.GRPCAddress != "" {
+					StartOptions.GRPCServer.Address = UnmOptions.GRPCAddress
 				}
 
 			} // else ==> DEFAULT values will be set

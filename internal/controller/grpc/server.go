@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"log"
 	"net"
 	"net/url"
 	"sync"
@@ -282,7 +281,7 @@ func (s *Server) InternalStats(ctx context.Context, _ *protos.StatRequest) (*pro
 	}, nil
 }
 
-// Serve - relates grpcServer with Shorten service  and launches the gRPC server
+/*// Serve - relates grpcServer with Shorten service  and launches the gRPC server
 func Serve(srv *Server) error {
 	lis, err := net.Listen("tcp", "localhost:8081")
 	if err != nil {
@@ -295,3 +294,4 @@ func Serve(srv *Server) error {
 
 	return grpcServer.Serve(lis)
 }
+*/

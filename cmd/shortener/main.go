@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Painkiller675/url_shortener_6750/internal/business"
 	"github.com/Painkiller675/url_shortener_6750/internal/controller/grpc"
-	"github.com/Painkiller675/url_shortener_6750/internal/models"
+	"github.com/Painkiller675/url_shortener_6750/internal/protos"
+	ggrpc "google.golang.org/grpc"
 	"log"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -15,14 +16,15 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
-
+	"github.com/Painkiller675/url_shortener_6750/internal/business"
 	"github.com/Painkiller675/url_shortener_6750/internal/config"
 	"github.com/Painkiller675/url_shortener_6750/internal/controller"
 	gzipMW "github.com/Painkiller675/url_shortener_6750/internal/middleware/gzip"
 	"github.com/Painkiller675/url_shortener_6750/internal/middleware/logger"
+	"github.com/Painkiller675/url_shortener_6750/internal/models"
 	"github.com/Painkiller675/url_shortener_6750/internal/repository"
+	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 // @title My_URL_Shortener
@@ -120,6 +122,29 @@ func main() {
 		r.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 
 	})
+
+	// gRPC
+	// create my gRPC server instance
+	msrv := grpc.NewGRPCServer(busLog, l.Logger, &wg1, chanJobs)
+	// create a real lib instance
+	grpcServer := ggrpc.NewServer()
+	//  relates grpcServer with Shorten service
+	protos.RegisterShortenerServer(grpcServer, msrv)
+	// open the connection
+	lis, err := net.Listen("tcp", config.StartOptions.GRPCServer.Address)
+	if err != nil {
+		panic(err)
+	}
+	// launch the gRPC server in a goroutine
+	go func() {
+		l.Logger.Info("Running gRPC server", zap.String("address", config.StartOptions.GRPCServer.Address))
+		if err := grpcServer.Serve(lis); err != nil {
+			l.Logger.Error("gRPC server failed: ", zap.Error(err))
+			return
+		}
+
+	}()
+
 	// graceful shutdown
 	var srv = http.Server{Addr: config.StartOptions.HTTPServer.Address, Handler: r}
 	sigChan := make(chan os.Signal, 2)
@@ -133,16 +158,9 @@ func main() {
 
 			log.Printf("HTTP server Shutdown: %v", err)
 		}
+		// stop gRPC server gracefully
+		grpcServer.GracefulStop()
 		close(idleConnsClosed)
-	}()
-
-	//grpcServer := &grpc.Server{}
-	grpcServer := grpc.NewGRPCServer(busLog, l.Logger, &wg1, chanJobs)
-
-	go func() {
-		if err := grpc.Serve(grpcServer); err != nil {
-			log.Println("gRPC server failed: %w", err)
-		}
 	}()
 
 	fmt.Printf("Build version: %s\n Build date: %s\n Build commit: %s\n\n", buildVersion, buildDate, buildCommit)
