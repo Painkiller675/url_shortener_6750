@@ -35,8 +35,20 @@ type URLIsDel struct {
 	IsDel bool   `json:"-"`
 }
 
+// Stats is used to marshal the statistics in the controller's handler GetStats()
+type Stats struct {
+	URLs  int `json:"urls"`
+	Users int `json:"users"`
+}
+
 // Claims — структура утверждений, которая включает стандартные утверждения и одно пользовательское UserID.
 type Claims struct {
 	jwt.RegisteredClaims
 	UserID string
+}
+
+// JobToDelete is used for the asynchronous deleting
+type JobToDelete struct {
+	UserID string
+	LsURL  []string
 }

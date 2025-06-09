@@ -1,0 +1,74 @@
+
+syntax = "proto3";
+
+package service;
+
+option go_package = "github.com/Painkiller675/url_shortener_6750/internal/protos";
+
+
+message PingDBRequest {}
+
+message PingDBResponse {}
+
+message CreateShortURLRequest{
+  string url = 1;
+}
+
+message CreateShortURLResponse{
+  string result = 1;
+}
+
+message StatRequest {
+}
+
+message StatResponse {
+  int32 urls = 1;
+  int32 users = 2;
+}
+
+message GetUrlsRequest {
+}
+
+message GetUrlsResponse {
+  repeated models.UserURLS urls = 1;
+}
+
+message GetUrlRequest {
+  string id = 1;
+}
+
+message GetUrlResponse {
+  string url = 1;
+}
+
+message DeleteRequest {
+  repeated string ids = 1;
+}
+
+message DeleteResponse {
+}
+
+message BatchRequest {
+  repeated internal.proto.v1.models.BatchFullUrl urls = 1;
+}
+
+message BatchResponse {
+  repeated internal.proto.v1.models.BatchShortUrl result = 1;
+}
+
+service Shortener {
+  rpc PingDB(PingDBRequest) returns (PingDBResponse) {}
+  rpc CreateShortURL(CreateShortURLRequest) returns (CreateShortURLResponse)
+  rpc Batch(BatchRequest) returns (BatchResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc GetURL(GetUrlRequest) returns (GetUrlResponse);
+  rpc GetURLs(internal.proto.v1.rpc.GetUrlsRequest) returns (internal.proto.v1.rpc.GetUrlsResponse);
+  rpc InternalStats(StatRequest) returns (StatResponse);
+}
+
+
+/*protoc --go_out=. --go_opt=paths=source_relative \
+--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+internal/protos/service.proto
+
+ */

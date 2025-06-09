@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -22,15 +23,19 @@ var version = "4.0" +
 
 // Options - basic parameters of the server
 type Options struct {
-	BaseURL      string
-	LogLvl       string // flag
-	Filename     string
-	DBConStr     string
-	HTTPSEnabled bool
-	JSONConfig   string
-	CertFile     string
-	KeyFile      string
+	BaseURL *url.URL // we'll parse it over here to save memory allocation in StoreAlURL in business
+	//so we'll use baseURL.JoinPath(randAl) instead of url.JoinPath(..)
+	BaseURLStr    string
+	LogLvl        string // flag
+	Filename      string
+	DBConStr      string
+	HTTPSEnabled  bool
+	TrustedSubnet string
+	JSONConfig    string
+	CertFile      string
+	KeyFile       string
 	HTTPServer
+	GRPCServer
 }
 
 // ummarshalOptions - is used to unmarshal json config file
@@ -40,6 +45,8 @@ type ummarshalOptions struct {
 	Filename      string `json:"file_storage_path"`
 	DBConStr      string `json:"database_dsn"`
 	HTTPSEnabled  bool   `json:"enable_https"`
+	TrustedSubnet string `json:"trusted_subnet"`
+	GRPCAddress   string `json:"gRPC_address"`
 }
 
 // HTTPServer - embedded basic parameters of the server
@@ -47,6 +54,10 @@ type HTTPServer struct {
 	Address     string
 	Timeout     time.Duration
 	IdleTimeout time.Duration
+}
+
+type GRPCServer struct {
+	Address string
 }
 
 // StartOptions - for flags
@@ -66,14 +77,16 @@ var UnmOptions ummarshalOptions
 func SetConfig() error {
 	//var StartOptions Options
 	flag.StringVar(&StartOptions.HTTPServer.Address, "a", ":8080", "HTTP-server address")
-	flag.StringVar(&StartOptions.BaseURL, "b", "http://localhost:8080/", "base URL")
+	flag.StringVar(&StartOptions.GRPCServer.Address, "ga", ":8081", "gRPC-server address")
+	flag.StringVar(&StartOptions.BaseURLStr, "b", "http://localhost:8080/", "base URL")
 	flag.StringVar(&StartOptions.LogLvl, "l", "info", "log level")
 	flag.StringVar(&StartOptions.Filename, "f", "", "storage filename")
-	flag.StringVar(&StartOptions.DBConStr, "d", "", "DSN (for database)")
+	flag.StringVar(&StartOptions.DBConStr, "d", "user=postgres password=12345678 dbname=url_shortener sslmode=disable", "DSN (for database)")
 	flag.BoolVar(&StartOptions.HTTPSEnabled, "s", false, "to deactivate https mode use -s false ")
 	flag.StringVar(&StartOptions.JSONConfig, "c", "", "path to a json config")
 	flag.StringVar(&StartOptions.CertFile, "certFile", "../../internal/cert/localhost.pem", "tls certificate file path")
 	flag.StringVar(&StartOptions.KeyFile, "keyFile", "../../internal/cert/localhost-key.pem", "tls key file path")
+	flag.StringVar(&StartOptions.TrustedSubnet, "t", "", "trusted subnet")
 	// set version in usage output
 	flag.Usage = func() {
 		// TODO: How should I handle this error the best???
@@ -132,17 +145,67 @@ func SetConfig() error {
 		}
 	}
 
+	if envRunAddr := os.Getenv("GSERVER_ADDRESS"); envRunAddr != "" {
+		StartOptions.GRPCServer.Address = envRunAddr
+	} else {
+		// if flags are set => assigning
+		if isFlagPassed("ga") {
+			// assigning set value
+		} else {
+			// assign config parameters (from json)
+			if StartOptions.JSONConfig != "" {
+				// if we have smth in config file
+				if UnmOptions.GRPCAddress != "" {
+					StartOptions.GRPCServer.Address = UnmOptions.GRPCAddress
+				}
+
+			} // else ==> DEFAULT values will be set
+
+		}
+	}
+
+	//ENV values (if set => use them else use   flags)
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+		StartOptions.TrustedSubnet = envTrustedSubnet
+	} else {
+		// if flags are set => assigning
+		if isFlagPassed("t") {
+			// assigning set value
+		} else {
+			// assign config parameters (from json)
+			if StartOptions.JSONConfig != "" {
+				// if we have smth in config file
+				if UnmOptions.TrustedSubnet != "" {
+					StartOptions.TrustedSubnet = UnmOptions.TrustedSubnet
+				}
+
+			} // else ==> DEFAULT values will be set
+
+		}
+	}
+
+	var err error
 	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
-		StartOptions.BaseURL = envBaseURL
+		StartOptions.BaseURL, err = url.Parse(envBaseURL)
+		if err != nil {
+			return err
+		}
 	} else {
 		// if flags are set => assigning
 		if isFlagPassed("b") {
+			StartOptions.BaseURL, err = url.Parse(StartOptions.BaseURLStr)
+			if err != nil {
+				return err
+			}
 			// assigning set value
 		} else {
 			// assign config parameters (from json)
 			if StartOptions.JSONConfig != "" {
 				if UnmOptions.BaseURL != "" {
-					StartOptions.BaseURL = UnmOptions.BaseURL
+					StartOptions.BaseURL, err = url.Parse(UnmOptions.BaseURL)
+					if err != nil {
+						return err
+					}
 				}
 			} // else ==> DEFAULT values will be set
 
